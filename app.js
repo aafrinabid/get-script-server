@@ -28,7 +28,7 @@ app.post('/registerProducer',async(req,res)=>{
     try{
         const {username,password,email,firstName,lastName}=req.body;
         const user=await pool.query('SELECT * FROM producers WHERE username=$1',[username]);
-        const useremail= await pool.query('SELECT * FROM users WHERE email=$1',[email])
+        const useremail= await pool.query('SELECT * FROM producers WHERE email=$1',[email])
         console.log(user)
         if(user.rowCount>0){
            throw new Error('Person with this username already exist') 
@@ -60,8 +60,13 @@ app.post('/loginProduer',async(req,res)=>{
                 const token= jwt.sign({id},'jwtsecret',{
                     expiresIn:3000,
                 })
+                if(user.rows[0].status==='pending'){
+                    throw new Error('Awaiting confirmation from the presidernt')
+                }
+                if(user.rows[0].status==='approved'){
                 const result=user.rows[0];
                 res.status(200).json({result,token:token,status,auth:true,role:2})
+                }
             }else{
                 throw new Error('Password is Wrong')
             }
