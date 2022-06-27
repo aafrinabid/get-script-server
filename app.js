@@ -43,7 +43,11 @@ app.post('/registerProducer',async(req,res)=>{
          console.log(hashPassword)
          const NewUser=await pool.query('INSERT INTO producers(username,email,firstname,lastname,password,status,is_deleted) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',
          [username,email,firstName,lastName,hashPassword,'pending',false]);
-         res.status(200).json({auth:true,role:2,status:'pending'})
+         const id= NewUser.rows[0].producer_id
+         const token= jwt.sign({id},'jwtsecret',{
+            expiresIn:3000,
+        })
+         res.status(200).json({token:token,auth:true,role:2,status:'pending'})
        }
     }catch(err){
     res.status(400).json({message:err.message,auth:false })
@@ -66,7 +70,8 @@ app.post('/loginProducer',async(req,res)=>{
                     expiresIn:3000,
                 })
                 if(user.rows[0].status==='pending'){
-                    throw new Error('Awaiting confirmation from the presidernt')
+                    // throw new Error('Awaiting confirmation from the presidernt')
+                    res.status(200).json({token:token,status,auth:true,role:2})
                 }
                 if(user.rows[0].status==='approved'){
                 const result=user.rows[0];
