@@ -40,10 +40,10 @@ app.post('/registerProducer',async(req,res)=>{
          const hashPassword=hashPassword(password);
          const NewUser=await pool.query('INSERT INTO producers(username,email,firstname,lastname,password,status,is_deleted) VALUES($1,$2,$3,$4,$5,$6 RETURNING *',
          [username,email,firstName,lastName,password,'pending',false]);
-         res.status(200).json({auth:true})
+         res.status(200).json({auth:true,role:2,status:'pending'})
        }
     }catch(err){
-    res.status(400).json({message:err.message,auth:false})
+    res.status(400).json({message:err.message,auth:false })
     }
 }
 )
@@ -61,7 +61,7 @@ app.post('/loginProduer',async(req,res)=>{
                     expiresIn:3000,
                 })
                 const result=user.rows[0];
-                res.status(200).json({result,token:token,status})
+                res.status(200).json({result,token:token,status,auth:true,role:2})
             }else{
                 throw new Error('Password is Wrong')
             }
