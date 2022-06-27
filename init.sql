@@ -12,6 +12,21 @@ CREATE TABLE producers (
     username VARCHAR NOT NULL,
     email VARCHAR NOT NULL,
     password VARCHAR NOT NULL,
+    firstName VARCHAR NOT NULL,
+    lastName VARCHAR NOT NULL,
+    status VARCHAR NOT NULL,
+    PRIMARY KEY (producer_id)
+);
+
+
+CREATE TABLE scriptwriter (
+    producer_id uuid DEFAULT uuid_generate_v4 (),
+    username VARCHAR NOT NULL,
+    email VARCHAR NOT NULL,
+    password VARCHAR NOT NULL,
+    firstName VARCHAR NOT NULL,
+    lastName VARCHAR NOT NULL,
+    status VARCHAR NOT NULL,
     PRIMARY KEY (producer_id)
 );
 
@@ -25,3 +40,4 @@ CREATE TABLE producerDetails (
     FOREIGN KEY (producer_id),
     REFRENCES producers(producer_id)
 );
+
