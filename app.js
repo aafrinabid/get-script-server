@@ -38,9 +38,8 @@ app.post('/registerProducer',async(req,res)=>{
             throw new Error('person with this email already exist')
         }
         else{
-            const salt =await bcrypt.genSalt(10);
-            console.log(salt)
-         const hashPassword=await bcrypt.hash(password,salt);
+            
+         const hashPassword=await bcrypt.hash(password,10);
          console.log(hashPassword)
          const NewUser=await pool.query('INSERT INTO producers(username,email,firstname,lastname,password,status,is_deleted) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',
          [username,email,firstName,lastName,hashPassword,'pending',false]);
@@ -52,11 +51,13 @@ app.post('/registerProducer',async(req,res)=>{
 }
 )
 
-app.post('/loginProduer',async(req,res)=>{
+app.post('/loginProducer',async(req,res)=>{
     try{
         const {username,password}=req.body
+        console.log(req.body)
         const user= await pool.query('SELECT * FROM producers WHERE username=$1',[username])
         if(user.rowCount===1){
+            console.log(user.rows[0].password)
             const compPass= await bcrypt.compare(password,user.rows[0].password)
             if(compPass){
                 const id=user.rows[0].producer_id
