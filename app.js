@@ -14,10 +14,10 @@ app.use(cors())
 
 
 
-async function hashPassword(p){
-    const password=await bcrypt.hash(p,10);
-    return password;
-}
+// async function hashPassword(p){
+//     const password=await bcrypt.hash(p,10);
+//     return password;
+// }
 
 // const compPassword=async(p)=>{
 //     const p
@@ -27,6 +27,7 @@ async function hashPassword(p){
 app.post('/registerProducer',async(req,res)=>{
     try{
         const {username,password,email,firstName,lastName}=req.body;
+        console.log(password,username)
         const user=await pool.query('SELECT * FROM producers WHERE username=$1',[username]);
         const useremail= await pool.query('SELECT * FROM producers WHERE email=$1',[email])
         console.log(user)
@@ -37,9 +38,12 @@ app.post('/registerProducer',async(req,res)=>{
             throw new Error('person with this email already exist')
         }
         else{
-         const hashPassword=hashPassword(password);
-         const NewUser=await pool.query('INSERT INTO producers(username,email,firstname,lastname,password,status,is_deleted) VALUES($1,$2,$3,$4,$5,$6 RETURNING *',
-         [username,email,firstName,lastName,password,'pending',false]);
+            const salt =await bcrypt.genSalt(10);
+            console.log(salt)
+         const hashPassword=await bcrypt.hash(password,salt);
+         console.log(hashPassword)
+         const NewUser=await pool.query('INSERT INTO producers(username,email,firstname,lastname,password,status,is_deleted) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+         [username,email,firstName,lastName,hashPassword,'pending',false]);
          res.status(200).json({auth:true,role:2,status:'pending'})
        }
     }catch(err){
