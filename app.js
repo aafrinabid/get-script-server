@@ -98,6 +98,19 @@ await pool.query('UPDATE producers SET is_deleted=$1 WHERE username=$2',[true,us
 }
 )
 
+app.get('/fetchProducers',async(req,res)=>{
+    try{
+        const fetchedProducers=await pool.query('SELECT * FROM producers')
+        const result=fetchedProducers.rows;
+
+        res.status(200).json({result})
+    }catch(e){
+        res.status(400).json({message:e.message})
+    }
+  
+
+})
+
 app.listen(4000,()=>{
     console.log('listening at 4000')
 })

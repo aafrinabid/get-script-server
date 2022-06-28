@@ -27,6 +27,7 @@ CREATE TABLE scriptwriter (
     firstName VARCHAR NOT NULL,
     lastName VARCHAR NOT NULL,
     status VARCHAR NOT NULL,
+    is_deleted VARCHAR NOT NULL,
     PRIMARY KEY (producer_id)
 );
 
