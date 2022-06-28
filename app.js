@@ -87,14 +87,39 @@ app.post('/loginProducer',async(req,res)=>{
 })
 
 app.post('/approved',async(req,res)=>{
-    const {username}=req.body;
-    await pool.query('UPDATE producers SET status=$1 WHERE username=$2',['approved',username])
+    try{
+        const {id}=req.body;
+        console.log(id)
+        const result=await pool.query('UPDATE producers SET status=$1 WHERE producer_id=$2 RETURNING status',['approved',id])
+
+        console.log(result)
+        if(result.rows[0]['status']==='approved'){
+
+            res.status(200).json({status:true})
+        }
+        else{
+            throw new Error('some thing wrong happened')
+        }
+    }catch(e){
+        console.log(e)
+    }
+   
 
 })
 
 app.post('/reject',async(req,res)=>{
-const {username}=req.body;
-await pool.query('UPDATE producers SET is_deleted=$1 WHERE username=$2',[true,username])
+try{const {id}=req.body;
+const result=await pool.query('UPDATE producers SET is_deleted=$1,status=$2 WHERE producer_id=$3 RETURNING is_deleted,status',[true,'rejected',id])
+console.log(result.rows[0])
+if(result.rows[0]['is_deleted']){
+
+    res.status(200).json({deleted:true})
+}else{
+    throw new Error('somenthing happend at our end sorry ')
+}
+}catch(e){
+    console.log(e)
+}
 }
 )
 
