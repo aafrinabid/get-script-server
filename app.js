@@ -22,7 +22,31 @@ app.use(cors())
 // const compPassword=async(p)=>{
 //     const p
 // }
+const verifyJwt=(req,res,next)=>{
+    const token=req.headers["x-access-token"];
 
+    if(!token){
+        res.send('no token is there')
+    }else{
+        jwt.verify(token,"jwtsecret",(err,decoded)=>{
+            if(err){
+                return res.json({auth:false,message:'authorization failed'})
+            }else{
+                console.log('success verification');
+                req.userId=decoded.id;
+                req.role=decoded.role
+               
+               //  console.log(req.userId)
+                next();
+            }
+        })
+    }
+
+}
+app.get('isAuth',verifyJwt,(req,res)=>{
+    const token=req.headers['x-access-token'];
+    res.json({auth:true,message:'you are authenticated',id:req.userId,token,role:req.role})
+})
 
 app.post('/registerProducer',async(req,res)=>{
     try{
@@ -44,10 +68,11 @@ app.post('/registerProducer',async(req,res)=>{
          const NewUser=await pool.query('INSERT INTO producers(username,email,firstname,lastname,password,status,is_deleted) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',
          [username,email,firstName,lastName,hashPassword,'pending',false]);
          const id= NewUser.rows[0].producer_id
-         const token= jwt.sign({id},'jwtsecret',{
+         const role=2
+         const token= jwt.sign({id,role},'jwtsecret',{
             expiresIn:3000,
         })
-         res.status(200).json({token:token,auth:true,role:2,status:'pending'})
+         res.status(200).json({token:token,auth:true,role,status:'pending'})
        }
     }catch(err){
     res.status(400).json({message:err.message,auth:false })
@@ -65,17 +90,18 @@ app.post('/loginProducer',async(req,res)=>{
             const compPass= await bcrypt.compare(password,user.rows[0].password)
             if(compPass){
                 const id=user.rows[0].producer_id
+                const role=2
                 const status=user.rows[0].status
-                const token= jwt.sign({id},'jwtsecret',{
+                const token= jwt.sign({id,role},'jwtsecret',{
                     expiresIn:3000,
                 })
                 if(user.rows[0].status==='pending'){
                     // throw new Error('Awaiting confirmation from the presidernt')
-                    res.status(200).json({token:token,status,auth:true,role:2})
+                    res.status(200).json({token:token,status,auth:true,role})
                 }
                 if(user.rows[0].status==='approved'){
                 const result=user.rows[0];
-                res.status(200).json({result,token:token,status,auth:true,role:2})
+                res.status(200).json({result,token:token,status,auth:true,role})
                 }
             }else{
                 throw new Error('Password is Wrong')
@@ -125,8 +151,9 @@ if(result.rows[0]['is_deleted']){
 
 app.get('/fetchProducers',async(req,res)=>{
     try{
-        const fetchedProducers=await pool.query('SELECT * FROM producers')
+        const fetchedProducers=await pool.query('SELECT * FROM producers WHERE is_deleted=$1' ,[false])
         const result=fetchedProducers.rows;
+        console.log(result)
 
         res.status(200).json({result})
     }catch(e){
@@ -135,6 +162,72 @@ app.get('/fetchProducers',async(req,res)=>{
   
 
 })
+
+
+app.post('/registerScriptwriter',async(req,res)=>{
+    try{
+        const {username,password,email,firstName,lastName}=req.body;
+        console.log(password,username)
+        const user=await pool.query('SELECT * FROM scriptwriter WHERE username=$1',[username]);
+        const useremail= await pool.query('SELECT * FROM scriptwriter WHERE email=$1',[email])
+        console.log(user)
+        if(user.rowCount>0){
+           throw new Error('Person with this username already exist') 
+        }
+        if(useremail.rowCount>0){
+            throw new Error('person with this email already exist')
+        }
+        else{
+            
+         const hashPassword=await bcrypt.hash(password,10);
+         console.log(hashPassword)
+         const NewUser=await pool.query('INSERT INTO scriptwriter(username,email,firstname,lastname,password,status,is_deleted) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+         [username,email,firstName,lastName,hashPassword,'approved',false]);
+         const id= NewUser.rows[0].scriptwriter_id
+         const role=1
+         const token= jwt.sign({id,role},'jwtsecret',{
+            expiresIn:3000,
+        })
+         res.status(200).json({token:token,auth:true,role,status:'approved'})
+       }
+    }catch(err){
+    res.status(400).json({message:err.message,auth:false })
+    }
+})
+
+app.post('/loginScriptwriter',async(req,res)=>{
+    try{
+        const {username,password}=req.body
+        console.log(req.body)
+        const user= await pool.query('SELECT * FROM scriptwriter WHERE username=$1',[username])
+        if(user.rowCount===1){
+            console.log(user.rows[0].password)
+            const compPass= await bcrypt.compare(password,user.rows[0].password)
+            if(compPass){
+                const id=user.rows[0].scriptwriter_id
+                const status=user.rows[0].status
+                const role=1
+                const token= jwt.sign({id,role},'jwtsecret',{
+                    expiresIn:3000,
+                })
+                if(user.rows[0].status==='blocked'){
+                    // throw new Error('Awaiting confirmation from the presidernt')
+                    res.status(200).json({token:token,status,auth:false,role})
+                }
+                if(user.rows[0].status==='approved'){
+                const result=user.rows[0];
+                res.status(200).json({result,token:token,status,auth:true,role})
+                }
+            }else{
+                throw new Error('Password is Wrong')
+            }
+        }
+    }catch(e){
+        res.status(400).json({message:e.message})
+    }
+})
+
+
 
 app.listen(4000,()=>{
     console.log('listening at 4000')

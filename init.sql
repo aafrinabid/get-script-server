@@ -15,20 +15,23 @@ CREATE TABLE producers (
     firstName VARCHAR NOT NULL,
     lastName VARCHAR NOT NULL,
     status VARCHAR NOT NULL,
+    is_deleted BOOLEAN NOT NULL,
     PRIMARY KEY (producer_id)
 );
 
 
+
+
 CREATE TABLE scriptwriter (
-    producer_id uuid DEFAULT uuid_generate_v4 (),
+    scriptwriter_id uuid DEFAULT uuid_generate_v4 (),
     username VARCHAR NOT NULL,
     email VARCHAR NOT NULL,
     password VARCHAR NOT NULL,
     firstName VARCHAR NOT NULL,
     lastName VARCHAR NOT NULL,
     status VARCHAR NOT NULL,
-    is_deleted VARCHAR NOT NULL,
-    PRIMARY KEY (producer_id)
+    is_deleted BOOLEAN NOT NULL,
+    PRIMARY KEY (scriptwriter_id)
 );
 
 CREATE TABLE producerDetails (
