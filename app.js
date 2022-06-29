@@ -43,9 +43,45 @@ const verifyJwt=(req,res,next)=>{
     }
 
 }
-app.get('isAuth',verifyJwt,(req,res)=>{
-    const token=req.headers['x-access-token'];
-    res.json({auth:true,message:'you are authenticated',id:req.userId,token,role:req.role})
+app.get('/isAuth',verifyJwt,async(req,res)=>{
+    try{
+        const token=req.headers['x-access-token'];
+    const id=req.userId
+    const role=req.role
+    console.log(id,role);
+   let status
+    if(role===1){
+    console.log('user is script type');
+    console.log('sfjkskf')
+
+
+           const result=await pool.query('SELECT * FROM scriptwriter WHERE scriptwriter_id=$1',[id])
+           console.log(result.rows)
+           status=result.rows[0]['status']
+           console.log(status,'coool')
+           if(status==='approved'){
+
+            res.json({auth:true,message:'you are authenticated',id,token,role,status})
+        }else({auth:false,message:'not authorised yet',role,status})
+
+    }
+    if(role===2){
+    console.log('user is script producer');
+    const result=await pool.query('SELECT * FROM producers WHERE producer_id=$1',[id])
+    console.log(result.rows)
+    status=result.rows[0]['status']
+    console.log('sfjkskf')
+    if(status==='approved'){
+
+        res.json({auth:true,message:'you are authenticated',id,token,role,status})
+    }else({auth:false,message:'not authorised yet',role,status})
+
+   }
+//    console.log(result)
+
+    }catch(e){
+        console.log('umborse');
+    }
 })
 
 app.post('/registerProducer',async(req,res)=>{
