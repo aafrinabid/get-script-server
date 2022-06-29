@@ -335,6 +335,15 @@ app.post('/adminlogin',async(req,res)=>{
     
 })
 
+app.get('/fetchnotification',async(req,res)=>{
+    const pendingRequests=await pool.query('SELECT * FROM producers WHERE status=$1',['pending'])
+    if(pendingRequests.rowCount>0){
+        const result=pendingRequests.rows
+
+        res.status(200).json({result})
+    }
+})
+
 
 
 
