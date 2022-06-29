@@ -77,17 +77,36 @@ app.get('/isAuth',verifyJwt,async(req,res)=>{
     }else({auth:false,message:'not authorised yet',role,status})
 
    }
+   if(role===3){
+    console.log('user is admin');
+    console.log('sfjkskf')
+
+
+           const result=await pool.query('SELECT * FROM adminPanel WHERE admin_id=$1',[id])
+           console.log(result.rows)
+           status='approved'
+           console.log(status,'coool')
+           if(status==='approved'){
+
+            res.json({auth:true,message:'you are authenticated',id,token,role,status})
+        }else({auth:false,message:'not authorised yet',role,status})
+
+    }
 //    console.log(result)
 
     }catch(e){
         console.log('umborse');
     }
 })
-
+//producer
 app.post('/registerProducer',async(req,res)=>{
     try{
         const {username,password,email,firstName,lastName}=req.body;
         console.log(password,username)
+        // if(username='aafrin'){
+        //     console.log('not happening in usernaem')
+        //     res.status(400).json({auth:false,message:'username already exist'})
+        // }
         const user=await pool.query('SELECT * FROM producers WHERE username=$1',[username]);
         const useremail= await pool.query('SELECT * FROM producers WHERE email=$1',[email])
         console.log(user)
@@ -148,58 +167,8 @@ app.post('/loginProducer',async(req,res)=>{
     }
 })
 
-app.post('/approved',async(req,res)=>{
-    try{
-        const {id}=req.body;
-        console.log(id)
-        const result=await pool.query('UPDATE producers SET status=$1 WHERE producer_id=$2 RETURNING status',['approved',id])
 
-        console.log(result)
-        if(result.rows[0]['status']==='approved'){
-
-            res.status(200).json({status:true})
-        }
-        else{
-            throw new Error('some thing wrong happened')
-        }
-    }catch(e){
-        console.log(e)
-    }
-   
-
-})
-
-app.post('/reject',async(req,res)=>{
-try{const {id}=req.body;
-const result=await pool.query('UPDATE producers SET is_deleted=$1,status=$2 WHERE producer_id=$3 RETURNING is_deleted,status',[true,'rejected',id])
-console.log(result.rows[0])
-if(result.rows[0]['is_deleted']){
-
-    res.status(200).json({deleted:true})
-}else{
-    throw new Error('somenthing happend at our end sorry ')
-}
-}catch(e){
-    console.log(e)
-}
-}
-)
-
-app.get('/fetchProducers',async(req,res)=>{
-    try{
-        const fetchedProducers=await pool.query('SELECT * FROM producers WHERE is_deleted=$1' ,[false])
-        const result=fetchedProducers.rows;
-        console.log(result)
-
-        res.status(200).json({result})
-    }catch(e){
-        res.status(400).json({message:e.message})
-    }
-  
-
-})
-
-
+//scriptwriter
 app.post('/registerScriptwriter',async(req,res)=>{
     try{
         const {username,password,email,firstName,lastName}=req.body;
@@ -262,6 +231,110 @@ app.post('/loginScriptwriter',async(req,res)=>{
         res.status(400).json({message:e.message})
     }
 })
+
+//adminpanel
+app.post('/approved',async(req,res)=>{
+    try{
+        const {id}=req.body;
+        console.log(id)
+        const result=await pool.query('UPDATE producers SET status=$1 WHERE producer_id=$2 RETURNING status',['approved',id])
+
+        console.log(result)
+        if(result.rows[0]['status']==='approved'){
+
+            res.status(200).json({status:true})
+        }
+        else{
+            throw new Error('some thing wrong happened')
+        }
+    }catch(e){
+        console.log(e)
+    }
+   
+
+})
+
+app.post('/reject',async(req,res)=>{
+try{const {id}=req.body;
+const result=await pool.query('UPDATE producers SET is_deleted=$1,status=$2 WHERE producer_id=$3 RETURNING is_deleted,status',[true,'rejected',id])
+console.log(result.rows[0])
+if(result.rows[0]['is_deleted']){
+
+    res.status(200).json({deleted:true})
+}else{
+    throw new Error('somenthing happend at our end sorry ')
+}
+}catch(e){
+    console.log(e)
+}
+}
+)
+
+app.get('/fetchProducers',async(req,res)=>{
+    try{
+        const fetchedProducers=await pool.query('SELECT * FROM producers WHERE is_deleted=$1' ,[false])
+        const result=fetchedProducers.rows;
+        console.log(result)
+
+        res.status(200).json({result})
+    }catch(e){
+        res.status(400).json({message:e.message})
+    }
+  
+
+})
+
+app.get('/getUserCount',async(req,res)=>{
+    try{
+        const producers=await pool.query('SELECT COUNT(producer_id) FROM producers WHERE status=$1',['approved'])
+        const pendingProducers=await pool.query('SELECT COUNT(producer_id) FROM producers WHERE status=$1',['pending'])
+        const declinedProducers=await pool.query('SELECT COUNT(producer_id) FROM producers WHERE status=$1',['rejected'])
+        const producerCount=parseInt(producers.rows[0].count) 
+        const pendingProducersCount=parseInt(pendingProducers.rows[0].count)
+        const declinedProducersCount=parseInt(declinedProducers.rows[0].count)
+
+        const scriptwriters=await pool.query('SELECT COUNT(scriptwriter_id) FROM scriptwriter WHERE status=$1',['approved'])
+        const declinedScriptwriters=await pool.query('SELECT COUNT(scriptwriter_id) FROM scriptwriter WHERE status=$1',['rejected'])
+        const scriptwriterCount=parseInt(scriptwriters.rows[0].count)
+        const declinedScriptwritersCount=parseInt(declinedScriptwriters.rows[0].count)
+
+        const totalUsers=scriptwriterCount+producerCount
+        const blockedUsers=declinedProducersCount+declinedScriptwritersCount;
+        res.status(200).json({scriptwriterCount,producerCount,totalUsers,pendingProducersCount,declinedProducersCount,declinedScriptwritersCount,blockedUsers})
+
+
+    }catch(e){
+        console.error(e)
+
+    }
+})
+
+app.post('/adminlogin',async(req,res)=>{
+    try{
+        const {username,password}=req.body;
+        const admin=await pool.query('SELECT * FROM adminPanel WHERE username=$1',[username])
+        if(admin.rowCount===1){
+            if(admin.rows[0]['password']===password){
+                console.log(admin.rows[0])
+                const role=3;
+                const id=admin.rows[0]['admin_id']
+                const token= jwt.sign({id,role},'jwtsecret',{
+                    expiresIn:3000,
+                })
+                const status='approved'
+    
+                res.status(200).json({token,status,auth:true,role})
+            }else{
+                console.log('booooooo')
+                res.status(400).json({message:'username already exist choose another one',auth:false})
+            }
+        }
+    }catch(e){
+        res.status(400).json({e,auth:false,})
+    }
+    
+})
+
 
 
 
