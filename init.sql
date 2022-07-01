@@ -93,7 +93,7 @@ CREATE TABLE script_media(
     script_poster VARCHAR NOT NULL,
     script_mini_poster VARCHAR NOT NULL,
     script_video VARCHAR NOT NULL,  
-    is_deleted BOOLEAN NOT NULL,
+    git
     FOREIGN KEY (script_id)
     REFRENCES scripts(script_id)
  
