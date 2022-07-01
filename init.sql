@@ -42,7 +42,7 @@ CREATE TABLE producerDetails (
     address VARCHAR NOT NULL,
     country VARCHAR NOT NULL,
     FOREIGN KEY (producer_id),
-    REFRENCES producers(producer_id)
+    REFERENCES producers(producer_id)
 );
 
 CREATE TABLE scripts(
@@ -51,7 +51,7 @@ CREATE TABLE scripts(
     is_deleted BOOLEAN NOT NULL,
     PRIMARY KEY (script_id)
     FOREIGN KEY (scriptwriter_id)
-    REFRENCES scriptwriter(scriptwriter_id)
+    REFERENCES scriptwriter(scriptwriter_id)
 
 );
 
@@ -65,7 +65,7 @@ CREATE TABLE script_detail(
     description VARCHAR NOT NULL,
     is_deleted BOOLEAN NOT NULL,
     FOREIGN KEY (script_id)
-    REFRENCES scripts(script_id)
+    REFERENCES scripts(script_id)
 
 
 
@@ -81,7 +81,7 @@ CREATE TABLE script_pitch(
    open_road VARCHAR NOT NULL,
    is_deleted BOOLEAN NOT NULL,
    FOREIGN KEY (script_id)
-   REFRENCES scripts(script_id)
+   REFERENCES scripts(script_id)
 
 
 
@@ -92,10 +92,9 @@ CREATE TABLE script_media(
     script_pdf_url VARCHAR NOT NULL,
     script_poster VARCHAR NOT NULL,
     script_mini_poster VARCHAR NOT NULL,
-    script_video VARCHAR NOT NULL,  
-    git
+    script_video VARCHAR,  
     FOREIGN KEY (script_id)
-    REFRENCES scripts(script_id)
+    REFERENCES scripts(script_id)
  
 
 
