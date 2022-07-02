@@ -1,9 +1,12 @@
+require('dotenv').config()
 const express=require('express');
+const AWS= require('aws-sdk');
 const app=express()
 const pool=require('./db');
 const bcrypt=require('bcrypt');
 const cors=require('cors');
 const jwt=require('jsonwebtoken');
+const multer=require('multer');
 const cookieParser = require('cookie-parser');
 const session=require('express-session');
 
@@ -11,6 +14,20 @@ const session=require('express-session');
 app.use(express.json())
 app.use(express.urlencoded({extended:true}))
 app.use(cors())
+
+const s3 =new AWS.S3({
+    accessKeyId:process.env.ACCESS_KEY_ID,
+    secretAccessKey:process.env.SECRET_ACCESS_KEY
+
+})
+
+const upload=multer({
+    storage:multer.memoryStorage(),
+    limits:{fileSize:52428800},
+})
+
+
+
 
 
 
@@ -44,7 +61,7 @@ const verifyJwt=(req,res,next)=>{
 
 }
 app.get('/isAuth',verifyJwt,async(req,res)=>{
-    try{
+    try{console.log(process.env.BUCKET_STORAGE_URL)
         const token=req.headers['x-access-token'];
     const id=req.userId
     const role=req.role
@@ -342,6 +359,25 @@ app.get('/fetchnotification',async(req,res)=>{
 
         res.status(200).json({result})
     }
+})
+
+//script
+
+
+app.post('/uploadscript',upload.single('file'),(req,res)=>{
+    const filename=Date.now().toString()
+    s3.putObject({
+        Bucket:process.env.BUCKET_NAME,
+        Key:`${filename}.pdf`,
+        Body:req.file.buffer,
+        ACL:'public-read',   
+    },(err)=>{
+        if(err)return res.status(400).send(err)
+        console.log(`${process.env.BUCKET_STORAGE_URL}${filename}.pdf`)
+        const url=`${process.env.BUCKET_STORAGE_URL}${filename}.pdf`
+        res.json({message:'File uploaded to S3;',url})
+    })
+    
 })
 
 
