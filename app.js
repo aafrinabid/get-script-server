@@ -365,19 +365,86 @@ app.get('/fetchnotification',async(req,res)=>{
 
 
 app.post('/uploadscript',upload.single('file'),(req,res)=>{
+    const type=req.file.mimetype
+    console.log(type)
+    let ext
+    console.log(type.endsWith('png'))
+    type.endsWith('png')?ext='png':type.endsWith('pdf')?ext='pdf':type.endsWith('jpg')?ext='jpg':type.endsWith('jpeg')?ext='jpeg':''
+    console.log(ext)
     const filename=Date.now().toString()
     s3.putObject({
         Bucket:process.env.BUCKET_NAME,
-        Key:`${filename}.pdf`,
+        Key:`${filename}.${ext}`,
         Body:req.file.buffer,
         ACL:'public-read',   
     },(err)=>{
         if(err)return res.status(400).send(err)
-        console.log(`${process.env.BUCKET_STORAGE_URL}${filename}.pdf`)
-        const url=`${process.env.BUCKET_STORAGE_URL}${filename}.pdf`
+        console.log(`${process.env.BUCKET_STORAGE_URL}${filename}.${ext}`)
+        const url=`${process.env.BUCKET_STORAGE_URL}${filename}.${ext}`
         res.json({message:'File uploaded to S3;',url})
     })
     
+})
+const typeHandler=(type,name)=>{
+if(name==='entertainment'){
+    if(type===10){
+        return 'MOVIE'
+    }
+    if(type===20){
+        return 'TV Series'
+    }
+    if(type===30){
+        return 'Anime'
+    }
+
+}
+if(name==='script'){
+    if(type===10){
+        return 'Movie Concept'
+    }
+    if(type===20){
+        return 'Series Pilot Episode'
+    }
+    if(type===30){
+        return 'Series Concept'
+    }
+    if(type===40){
+        return 'Anime Concept'
+    }
+    if(type===50){
+        return 'Short Film Concept'
+    }
+}
+    
+}
+
+app.get('/scriptupload',verifyJwt,async(req,res)=>{
+    try{
+        const id=req.userId
+        const {data}=req.body
+        const entertainmentType=typeHandler(data.entertainmentType,'entertainment')
+        const scriptType=typeHandler(data.scriptType,'script')
+        console.log(entertainmentType,scriptType)
+        const script=await pool.query('INSERT INTO scripts(scriptwriter_id,is_deleted) VALUES($1,$2) RETURNING script_id',
+        [id,false])
+        console.log(script)
+       
+        const  scriptId=script.rows[0]['script_id']
+       const scriptDetail= await pool.query('INSERT INTO script_detail(script_id,script_titile,entertainment,script_type,languages,description,genres,is_deleted) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+        [scriptId,data.titleName,entertainmentType,scriptType,'English',data.description,data.genres,false]);
+    
+    
+       const pitchTable=await pool.query('INSERT INTO script_pitch(script_id,the_origin,human_hook,character,desires,obstacles,highlights,open_road,is_deleted) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+        [scriptId,data['table']['theOrigin'],data['table']['humanHook'],data['table']['character'],data['table']['Desires'],data['table']['obstacles'],data['table']['highlights'],data['table']['openRoad'],false] )
+    
+        await pool.query('INSERT INTO script_media(scriptId,script_pdf_url,script_poster,script_mini_poster,script_video,is_deleted) VALUES($1,$2,$3,$4,$5,$6)',
+        [scriptId,data['pdf'],data['poster'],data['miniPoster'],data['video'],false])
+         res.status(200).json({uploaded:true})
+    
+    }catch(e){
+        res.status(400).json({e})
+    }
+        
 })
 
 
