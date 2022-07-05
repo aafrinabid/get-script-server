@@ -450,7 +450,16 @@ app.post('/scriptupload',verifyJwt,async(req,res)=>{
         
 })
 
-app.get('/fetchscript',(req,res)=>{
+app.get('/fetchscript',async(req,res)=>{
+    try{
+        const genre=req.headers["genre"];
+        const script=await pool.query('SELECT  scripts.script_id,script_detail.script_title,script_media.script_poster FROM scripts JOIN script_media ON scripts.script_id = script_media.script_id JOIN script_detail ON $1= ANY(script_detail.genres);',[genre])
+
+    }catch(e){
+
+    }
+
+
     
 })
 
