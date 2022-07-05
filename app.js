@@ -386,6 +386,7 @@ app.post('/uploadscript',upload.single('file'),(req,res)=>{
     
 })
 const typeHandler=(type,name)=>{
+    console.log('in type')
 if(name==='entertainment'){
     if(type===10){
         return 'MOVIE'
@@ -418,10 +419,12 @@ if(name==='script'){
     
 }
 
-app.get('/scriptupload',verifyJwt,async(req,res)=>{
+app.post('/scriptupload',verifyJwt,async(req,res)=>{
     try{
+        console.log('enterd',req.userId)
         const id=req.userId
-        const {data}=req.body
+        const data=req.body
+        console.log(data)
         const entertainmentType=typeHandler(data.entertainmentType,'entertainment')
         const scriptType=typeHandler(data.scriptType,'script')
         console.log(entertainmentType,scriptType)
@@ -430,21 +433,25 @@ app.get('/scriptupload',verifyJwt,async(req,res)=>{
         console.log(script)
        
         const  scriptId=script.rows[0]['script_id']
-       const scriptDetail= await pool.query('INSERT INTO script_detail(script_id,script_titile,entertainment,script_type,languages,description,genres,is_deleted) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+       const scriptDetail= await pool.query('INSERT INTO script_detail(script_id,script_title,entertainment,script_type,languages,description,genres,is_deleted) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
         [scriptId,data.titleName,entertainmentType,scriptType,'English',data.description,data.genres,false]);
     
     
        const pitchTable=await pool.query('INSERT INTO script_pitch(script_id,the_origin,human_hook,character,desires,obstacles,highlights,open_road,is_deleted) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',
         [scriptId,data['table']['theOrigin'],data['table']['humanHook'],data['table']['character'],data['table']['Desires'],data['table']['obstacles'],data['table']['highlights'],data['table']['openRoad'],false] )
     
-        await pool.query('INSERT INTO script_media(scriptId,script_pdf_url,script_poster,script_mini_poster,script_video,is_deleted) VALUES($1,$2,$3,$4,$5,$6)',
+        await pool.query('INSERT INTO script_media(script_id,script_pdf_url,script_poster,script_mini_poster,script_video,is_deleted) VALUES($1,$2,$3,$4,$5,$6)',
         [scriptId,data['pdf'],data['poster'],data['miniPoster'],data['video'],false])
          res.status(200).json({uploaded:true})
     
-    }catch(e){
-        res.status(400).json({e})
+    }catch(err){
+        res.status(400).json({message:err.message})
     }
         
+})
+
+app.get('/fetchscript',(req,res)=>{
+    
 })
 
 
