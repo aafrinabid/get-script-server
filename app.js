@@ -478,7 +478,7 @@ app.get('/scriptdetails',async(req,res)=>{
         // [scriptId,scriptId,scriptId])
           const scriptDetail= await pool.query(' select scriptwriter.username,script_detail.*,script_media.*,script_pitch.* from scripts join scriptwriter on scripts.scriptwriter_id = scriptwriter.scriptwriter_id join script_detail on scripts.script_id= script_detail.script_id join script_media on scripts.script_id = script_media.script_id join script_pitch on scripts.script_id=script_pitch.script_id WHERE scripts.script_id=$1',
         [scriptId])
-        const result=scriptDetail.rows
+        const result=scriptDetail.rows[0]
         res.status(200).json({result})
     }catch(e){
         res.status(400).json({message:e.message})
