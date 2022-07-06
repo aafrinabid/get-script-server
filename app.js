@@ -470,6 +470,21 @@ app.get('/fetchscript',async(req,res)=>{
     
 })
 
+app.get('/scriptdetails',async(req,res)=>{
+    try{
+        const scriptId=req.headers['scriptid']
+        console.log(scriptId)
+        const scriptDetail= await pool.query(' select scriptwriter.username,script_detail.*,script_media.*,script_pitch.* from scripts join scriptwriter on scripts.scriptwriter_id = scriptwriter.scriptwriter_id join script_detail on scripts.script_id= $1 join script_media on scripts.script_id = $2 join script_pitch on scripts.script_id=$3',
+        [scriptId,scriptId,scriptId])
+        const result=scriptDetail.rows[0]
+        res.status(200).json({result})
+    }catch(e){
+        res.status(400).json({message:e.message})
+
+    }
+    
+})
+
 
 
 
