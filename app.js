@@ -452,10 +452,17 @@ app.post('/scriptupload',verifyJwt,async(req,res)=>{
 
 app.get('/fetchscript',async(req,res)=>{
     try{
+        console.log('fetching')
         const genre=req.headers["genre"];
-        const script=await pool.query('SELECT  scripts.script_id,script_detail.script_title,script_media.script_poster FROM scripts JOIN script_media ON scripts.script_id = script_media.script_id JOIN script_detail ON $1= ANY(script_detail.genres);',[genre])
+        console.log(genre)
+    // SELECT  script_detail.script_id,script_detail.script_title,script_media.script_poster FROM script_detail JOIN script_media ON script_detail.script_id = script_media.script_id WHERE 'Science Fiction Genre'= ANY(script_detail.genres);
+
+        const scripts=await pool.query('SELECT  script_detail.script_id,script_detail.script_title,script_media.script_poster FROM script_detail JOIN script_media ON script_detail.script_id = script_media.script_id WHERE $1= ANY(script_detail.genres);',[genre])
+        const result=scripts.rows
+        res.status(200).json({result})
 
     }catch(e){
+        res.status(400).json({message:e.message})
 
     }
 
