@@ -499,6 +499,18 @@ app.get('/scriptdetails',async(req,res)=>{
     
 })
 
+app.get('/bannerscript',async(req,res)=>{
+    try{
+        const scripts=await pool.query('SELECT  script_detail.script_id,script_detail.script_title,script_detail.description,script_media.script_pdf_url,script_media.script_poster FROM script_detail JOIN script_media ON script_detail.script_id = script_media.script_id')
+        console.log(scripts.rowCount)
+        const index=Math.floor(Math.random()*scripts.rowCount)
+        const result=scripts.rows[index]
+        res.status(200).json({result})
+    }catch(e){
+        res.status(400).json({message:e.message})
+    }
+   
+})
 
 
 
