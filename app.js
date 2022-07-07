@@ -454,14 +454,26 @@ app.get('/fetchscript',async(req,res)=>{
     try{
         console.log('fetching')
         const genre=req.headers["genre"];
+        const inDetail=req.headers["indetail"]
+        console.log(req.headers['scriptid'])
         console.log(genre)
-    // SELECT  script_detail.script_id,script_detail.script_title,script_media.script_poster FROM script_detail JOIN script_media ON script_detail.script_id = script_media.script_id WHERE 'Science Fiction Genre'= ANY(script_detail.genres);
+        console.log(inDetail)
+        if(inDetail==='true'){
+            console.log('in detail')
+            const scriptId=req.headers['scriptid']
+            const scripts=await pool.query('SELECT  script_detail.script_id,script_detail.script_title,script_media.script_poster FROM script_detail JOIN script_media ON script_detail.script_id = script_media.script_id WHERE $1= ANY(script_detail.genres) AND script_detail.script_id != $2;',[genre,scriptId])
+            const result=scripts.rows
+            console.log(result)
+           return res.status(200).json({result})
+        }
 
         const scripts=await pool.query('SELECT  script_detail.script_id,script_detail.script_title,script_media.script_poster FROM script_detail JOIN script_media ON script_detail.script_id = script_media.script_id WHERE $1= ANY(script_detail.genres);',[genre])
         const result=scripts.rows
+        console.log(result)
         res.status(200).json({result})
 
     }catch(e){
+        console.log('heeeeeey')
         res.status(400).json({message:e.message})
 
     }
@@ -470,6 +482,35 @@ app.get('/fetchscript',async(req,res)=>{
     
 })
 
+app.get('/scriptdetails',async(req,res)=>{
+    try{
+        const scriptId=req.headers['scriptid']
+        console.log(scriptId)
+        // const scriptDetail= await pool.query(' select scriptwriter.username,script_detail.*,script_media.*,script_pitch.* from scripts join scriptwriter on scripts.scriptwriter_id = scriptwriter.scriptwriter_id join script_detail on scripts.script_id= $1 join script_media on scripts.script_id = $2 join script_pitch on scripts.script_id=$3',
+        // [scriptId,scriptId,scriptId])
+          const scriptDetail= await pool.query(' select scriptwriter.username,script_detail.*,script_media.*,script_pitch.* from scripts join scriptwriter on scripts.scriptwriter_id = scriptwriter.scriptwriter_id join script_detail on scripts.script_id= script_detail.script_id join script_media on scripts.script_id = script_media.script_id join script_pitch on scripts.script_id=script_pitch.script_id WHERE scripts.script_id=$1',
+        [scriptId])
+        const result=scriptDetail.rows[0]
+        res.status(200).json({result})
+    }catch(e){
+        res.status(400).json({message:e.message})
+
+    }
+    
+})
+
+app.get('/bannerscript',async(req,res)=>{
+    try{
+        const scripts=await pool.query('SELECT  script_detail.script_id,script_detail.script_title,script_detail.description,script_media.script_pdf_url,script_media.script_poster FROM script_detail JOIN script_media ON script_detail.script_id = script_media.script_id')
+        console.log(scripts.rowCount)
+        const index=Math.floor(Math.random()*scripts.rowCount)
+        const result=scripts.rows[index]
+        res.status(200).json({result})
+    }catch(e){
+        res.status(400).json({message:e.message})
+    }
+   
+})
 
 
 
