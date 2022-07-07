@@ -454,7 +454,19 @@ app.get('/fetchscript',async(req,res)=>{
     try{
         console.log('fetching')
         const genre=req.headers["genre"];
+        const inDetail=req.headers["indetail"]
+        console.log(req.headers['scriptid'])
         console.log(genre)
+        console.log(inDetail)
+        if(inDetail==='true'){
+            console.log('in detail')
+            const scriptId=req.headers['scriptid']
+            const scripts=await pool.query('SELECT  script_detail.script_id,script_detail.script_title,script_media.script_poster FROM script_detail JOIN script_media ON script_detail.script_id = script_media.script_id WHERE $1= ANY(script_detail.genres) AND script_detail.script_id != $2;',[genre,scriptId])
+            const result=scripts.rows
+            console.log(result)
+           return res.status(200).json({result})
+        }
+
         const scripts=await pool.query('SELECT  script_detail.script_id,script_detail.script_title,script_media.script_poster FROM script_detail JOIN script_media ON script_detail.script_id = script_media.script_id WHERE $1= ANY(script_detail.genres);',[genre])
         const result=scripts.rows
         console.log(result)
