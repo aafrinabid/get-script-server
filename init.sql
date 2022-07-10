@@ -60,7 +60,7 @@ CREATE TABLE script_detail(
     script_title VARCHAR NOT NULL,
     entertainment VARCHAR NOT NULL,
     script_type VARCHAR NOT NULL,
-    genres TEXT[] NOT NULL,
+    genres TEXT[scrip] NOT NULL,
     languages VARCHAR NOT NULL,
     description VARCHAR NOT NULL,
     is_deleted BOOLEAN NOT NULL,

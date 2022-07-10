@@ -7,13 +7,20 @@ const bcrypt=require('bcrypt');
 const cors=require('cors');
 const jwt=require('jsonwebtoken');
 const multer=require('multer');
-const cookieParser = require('cookie-parser');
-const session=require('express-session');
+const mongoose=require('mongoose');
+const messageModel = require('./model/messageModel');
+
 
 
 app.use(express.json())
 app.use(express.urlencoded({extended:true}))
 app.use(cors())
+mongoose.connect(process.env.MONGO_URL,{
+    useNewUrlParser:true,
+    useUnifiedTopology:true,
+}).then(()=>{
+    console.log('connected with mongodatabase')
+});
 
 const s3 =new AWS.S3({
     accessKeyId:process.env.ACCESS_KEY_ID,
@@ -60,7 +67,45 @@ const verifyJwt=(req,res,next)=>{
     }
 
 }
-app.get('/isAuth',verifyJwt,async(req,res)=>{
+
+app.post('/addMessage',async(req,res)=>{
+try{
+    const {from,to,message}=req.body;
+    const data= await messageModel.create({
+        message:{text:message},
+        users:[from,to],
+        sender:from,
+    });
+    if (data) return res.json({ msg: "Message added successfully." });
+    else return res.json({ msg: "Failed to add message to the database" });
+  } catch (ex) {
+    next(ex);
+}
+})
+
+app.post('/getMessages',async (req, res, next) => {
+    try {
+      const { from, to } = req.body;
+  
+      const messages = await messageModel.find({
+        users: {
+          $all: [from, to],
+        },
+      }).sort({ updatedAt: 1 });
+  
+      const projectedMessages = messages.map((msg) => {
+        return {
+          fromSelf: msg.sender.toString() === from,
+          message: msg.message.text,
+        };
+      });
+      res.json(projectedMessages);
+    } catch (ex) {
+      next(ex);
+    }
+  })
+
+app.get('/isAuth',verifyJwt,async(req,res,next)=>{
     try{console.log(process.env.BUCKET_STORAGE_URL)
         const token=req.headers['x-access-token'];
     const id=req.userId
