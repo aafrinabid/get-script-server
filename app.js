@@ -608,6 +608,19 @@ app.post('/addMessage',async(req,res)=>{
       })
 
 
+      app.post('/messagelist',async(req,res)=>{
+        try{
+            const {senderId,recieverId,date}=req.body;
+            console.log(senderId,recieverId,date)
+            await pool.query('INSERT INTO message(message_id,reciever_id,updated_time) VALUES($1,$2,$3)',[senderId,recieverId,date])
+          res.json({message:'success'})
+  
+        }catch(e){
+            console.error(e)
+  
+        }
+    })
+
 
 app.listen(4000,()=>{
     console.log('listening at 4000')
