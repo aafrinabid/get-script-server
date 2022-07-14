@@ -68,42 +68,13 @@ const verifyJwt=(req,res,next)=>{
 
 }
 
-app.post('/addMessage',async(req,res)=>{
-try{
-    const {from,to,message}=req.body;
-    const data= await messageModel.create({
-        message:{text:message},
-        users:[from,to],
-        sender:from,
-    });
-    if (data) return res.json({ msg: "Message added successfully." });
-    else return res.json({ msg: "Failed to add message to the database" });
-  } catch (ex) {
-    next(ex);
-}
+app.get('/getId',verifyJwt,(req,res)=>{
+const userId= req.userId
+const role=req.role
+res.json({userId,role})
 })
 
-app.post('/getMessages',async (req, res, next) => {
-    try {
-      const { from, to } = req.body;
-  
-      const messages = await messageModel.find({
-        users: {
-          $all: [from, to],
-        },
-      }).sort({ updatedAt: 1 });
-  
-      const projectedMessages = messages.map((msg) => {
-        return {
-          fromSelf: msg.sender.toString() === from,
-          message: msg.message.text,
-        };
-      });
-      res.json(projectedMessages);
-    } catch (ex) {
-      next(ex);
-    }
-  })
+
 
 app.get('/isAuth',verifyJwt,async(req,res,next)=>{
     try{console.log(process.env.BUCKET_STORAGE_URL)
@@ -556,6 +527,62 @@ app.get('/bannerscript',async(req,res)=>{
     }
    
 })
+//message
+app.post('/addMessage',async(req,res)=>{
+    try{
+        const {from,to,message}=req.body;
+        const data= await messageModel.create({
+            message:{text:message},
+            users:[from,to],
+            sender:from,
+        });
+        if (data) return res.json({ msg: "Message added successfully." });
+        else return res.json({ msg: "Failed to add message to the database" });
+      } catch (ex) {
+        next(ex);
+    }
+    })
+    
+    app.post('/getMessages',async (req, res, next) => {
+        try {
+          const { from, to } = req.body;
+      
+          const messages = await messageModel.find({
+            users: {
+              $all: [from, to],
+            },
+          }).sort({ updatedAt: 1 });
+      
+          const projectedMessages = messages.map((msg) => {
+            return {
+              fromSelf: msg.sender.toString() === from,
+              message: msg.message.text,
+            };
+          });
+          res.json(projectedMessages);
+        } catch (ex) {
+          next(ex);
+        }
+      })
+
+
+      app.post('/userDetails',async(req,res)=>{
+      const {id}=req.body
+      const {role}=req.body
+      let data
+      if(role===1){
+           data=await pool.query('SELECT username from scriptwriter WHERE scriptwriter_id=$1',[id])
+
+      }
+      if(role===2){
+         data=await pool.query('SELECT username from producers WHERE producer_id=$1',[id])
+
+    }
+    if(role===3){
+         data=await pool.query('SELECT username from adminPanel WHERER admin_id=$1',[id])
+    }
+    res.json({username:data.rows[0].username})
+      })
 
 
 
