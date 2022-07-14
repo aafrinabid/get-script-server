@@ -589,6 +589,21 @@ app.post('/addMessage',async(req,res)=>{
       })
 
 
+      app.post('/messagedetail',async(req,res)=>{
+        try{console.log('*****************************')
+            const {userid}=req.body
+            // console.log(req.body,recieverid)
+     const data=await pool.query('SELECT * FROM message WHERE message_id=$1  ORDER BY updated_time DESC',[userid])
+     if(data.rowCount>0){
+        res.json({result:data.rows})
+     }
+
+    }catch(e){
+        console.error(e)
+
+        }
+      })
+
       app.post('/userDetails',async(req,res)=>{
       const {id}=req.body
       const {role}=req.body
@@ -611,6 +626,10 @@ app.post('/addMessage',async(req,res)=>{
       app.post('/messagelist',async(req,res)=>{
         try{
             const {senderId,recieverId,date}=req.body;
+            const message= await pool.query('SELECT * FROM message WHERE message_id=$1 AND reciever_id=$2',[senderId,recieverId])
+            if(message.rowCount>0){
+              return  res.json({message:'exist'})
+            }
             console.log(senderId,recieverId,date)
             await pool.query('INSERT INTO message(message_id,reciever_id,updated_time) VALUES($1,$2,$3)',[senderId,recieverId,date])
           res.json({message:'success'})
