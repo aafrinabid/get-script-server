@@ -100,3 +100,14 @@ CREATE TABLE script_media(
 
 );
 
+
+CREATE TABLE message(
+  message_id uuid,
+  reciever_id uuid,
+  updated_time VARCHAR NOT NULL,
+  FOREIGN KEY (message_id)
+   REFERENCES scriptwriter(scriptwriter_id)
+   FOREIGN KEY(reciever_id)
+   REFERENCES scriptwriter(scriptwriter_id)
+
+)

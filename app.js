@@ -504,7 +504,7 @@ app.get('/scriptdetails',async(req,res)=>{
         console.log(scriptId)
         // const scriptDetail= await pool.query(' select scriptwriter.username,script_detail.*,script_media.*,script_pitch.* from scripts join scriptwriter on scripts.scriptwriter_id = scriptwriter.scriptwriter_id join script_detail on scripts.script_id= $1 join script_media on scripts.script_id = $2 join script_pitch on scripts.script_id=$3',
         // [scriptId,scriptId,scriptId])
-          const scriptDetail= await pool.query(' select scriptwriter.username,script_detail.*,script_media.*,script_pitch.* from scripts join scriptwriter on scripts.scriptwriter_id = scriptwriter.scriptwriter_id join script_detail on scripts.script_id= script_detail.script_id join script_media on scripts.script_id = script_media.script_id join script_pitch on scripts.script_id=script_pitch.script_id WHERE scripts.script_id=$1',
+          const scriptDetail= await pool.query(' select scriptwriter.username,scriptwriter.scriptwriter_id,script_detail.*,script_media.*,script_pitch.* from scripts join scriptwriter on scripts.scriptwriter_id = scriptwriter.scriptwriter_id join script_detail on scripts.script_id= script_detail.script_id join script_media on scripts.script_id = script_media.script_id join script_pitch on scripts.script_id=script_pitch.script_id WHERE scripts.script_id=$1',
         [scriptId])
         const result=scriptDetail.rows[0]
         res.status(200).json({result})
@@ -526,6 +526,29 @@ app.get('/bannerscript',async(req,res)=>{
         res.status(400).json({message:e.message})
     }
    
+})
+// profile
+
+app.post('/getProfileInfo',async(req,res)=>{
+try{
+    console.log('insider')
+const {userid,role}=req.body
+console.log(req.body)
+console.log(userid)
+let details
+if(role==1){
+    console.log('in i n1111111')
+    details=await pool.query('SELECT scriptwriter.* FROM scriptwriter WHERE scriptwriter_id=$1',[userid])
+
+}else{
+    details=await pool.query('SELECT producers.* FROM producers WHERE producer_id=$1',[userid])
+}
+console.log(details.rows[0],'hiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii')
+
+res.json({result:details.rows[0]})
+}catch(e){
+console.log(e)
+}
 })
 //message
 app.post('/addMessage',async(req,res)=>{
