@@ -605,22 +605,27 @@ app.post('/addMessage',async(req,res)=>{
       })
 
       app.post('/userDetails',async(req,res)=>{
-      const {id}=req.body
-      const {role}=req.body
-      let data
-      if(role===1){
-           data=await pool.query('SELECT username from scriptwriter WHERE scriptwriter_id=$1',[id])
-
-      }
-      if(role===2){
-         data=await pool.query('SELECT username from producers WHERE producer_id=$1',[id])
-
-    }
-    if(role===3){
-         data=await pool.query('SELECT username from adminPanel WHERER admin_id=$1',[id])
-    }
-    res.json({username:data.rows[0].username})
-      })
+        try{
+            const {id}=req.body
+            const {role}=req.body
+            let data
+            if(role===1){
+                 data=await pool.query('SELECT username from scriptwriter WHERE scriptwriter_id=$1',[id])
+      
+            }
+            if(role===2){
+               data=await pool.query('SELECT username from producers WHERE producer_id=$1',[id])
+      
+          }
+          if(role===3){
+               data=await pool.query('SELECT username from adminPanel WHERER admin_id=$1',[id])
+          }
+          res.json({username:data.rows[0].username})
+            }catch(e){
+                console.error(e)
+            }      
+        }
+       )
 
 
       app.post('/messagelist',async(req,res)=>{
@@ -632,6 +637,8 @@ app.post('/addMessage',async(req,res)=>{
             }
             console.log(senderId,recieverId,date)
             await pool.query('INSERT INTO message(message_id,reciever_id,updated_time) VALUES($1,$2,$3)',[senderId,recieverId,date])
+            await pool.query('INSERT INTO message(message_id,reciever_id,updated_time) VALUES($1,$2,$3)',[recieverId,senderId,date])
+
           res.json({message:'success'})
   
         }catch(e){
