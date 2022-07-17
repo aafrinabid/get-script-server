@@ -553,21 +553,25 @@ console.log(e)
 //message
 app.post('/addMessage',async(req,res)=>{
     try{
+        console.log(req.body)
         const {from,to,message}=req.body;
         const data= await messageModel.create({
             message:{text:message},
             users:[from,to],
             sender:from,
         });
+        console.log(data)
         if (data) return res.json({ msg: "Message added successfully." });
         else return res.json({ msg: "Failed to add message to the database" });
       } catch (ex) {
-        next(ex);
+        console.log(ex)
+        res.json({message:ex})
     }
     })
     
     app.post('/getMessages',async (req, res, next) => {
         try {
+            console.log('happening')
           const { from, to } = req.body;
       
           const messages = await messageModel.find({
@@ -575,16 +579,22 @@ app.post('/addMessage',async(req,res)=>{
               $all: [from, to],
             },
           }).sort({ updatedAt: 1 });
-      
-          const projectedMessages = messages.map((msg) => {
-            return {
-              fromSelf: msg.sender.toString() === from,
-              message: msg.message.text,
-            };
-          });
-          res.json(projectedMessages);
+          if(messages.length>0){
+            const projectedMessages = messages.map((msg) => {
+                return {
+                  fromSelf: msg.sender.toString() === from,
+                  message: msg.message.text,
+                };
+              });
+              res.json(projectedMessages);  
+          }
+          else{
+            res.json({messageStatus:false})
+          }
         } catch (ex) {
-          next(ex);
+            console.log(ex)
+            res.json({message:ex})
+        //   next(ex);
         }
       })
 
@@ -608,8 +618,9 @@ app.post('/addMessage',async(req,res)=>{
         try{
             const {id}=req.body
             const {role}=req.body
+            console.log(req.body)
             let data
-            if(role===1){
+            if(role==1){
                  data=await pool.query('SELECT username from scriptwriter WHERE scriptwriter_id=$1',[id])
       
             }
@@ -620,6 +631,7 @@ app.post('/addMessage',async(req,res)=>{
           if(role===3){
                data=await pool.query('SELECT username from adminPanel WHERER admin_id=$1',[id])
           }
+          console.log(data)
           res.json({username:data.rows[0].username})
             }catch(e){
                 console.error(e)
@@ -631,6 +643,10 @@ app.post('/addMessage',async(req,res)=>{
       app.post('/messagelist',async(req,res)=>{
         try{
             const {senderId,recieverId,date}=req.body;
+            if(senderId===recieverId){
+                console.log('cream')
+                return res.json({message:'same peroson'})
+            }
             const message= await pool.query('SELECT * FROM message WHERE message_id=$1 AND reciever_id=$2',[senderId,recieverId])
             if(message.rowCount>0){
               return  res.json({message:'exist'})
@@ -648,6 +664,6 @@ app.post('/addMessage',async(req,res)=>{
     })
 
 
-app.listen(4000,()=>{
+app.listen(3500,()=>{
     console.log('listening at 4000')
 })
