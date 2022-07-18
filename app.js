@@ -9,6 +9,7 @@ const jwt=require('jsonwebtoken');
 const multer=require('multer');
 const mongoose=require('mongoose');
 const messageModel = require('./model/messageModel');
+const socket=require('socket.io')
 
 
 
@@ -553,7 +554,7 @@ console.log(e)
 //message
 app.post('/addMessage',async(req,res)=>{
     try{
-        console.log(req.body)
+        // console.log(req.body)/
         const {from,to,message}=req.body;
         const data= await messageModel.create({
             message:{text:message},
@@ -667,3 +668,38 @@ app.post('/addMessage',async(req,res)=>{
 app.listen(3500,()=>{
     console.log('listening at 4000')
 })
+
+const io =require('socket.io')(3001,{
+    cors:{
+      origin:['http://localhost:3000'],
+      methods: ["GET", "POST"],
+      transports: ['websocket', 'polling'],
+      credentials: true
+    },
+  })
+
+global.onlineUsers= new Map();
+  io.on('connection',socket=>{
+    // console.log(socket.id)
+    global.chatSocket=socket;
+    socket.on('send-msg',(data)=>{
+        console.log('hiiiii goood',data)
+        // const message=data.msg;
+        // const sender=data.from;
+        // const reciever=data.to
+        socket.emit('recieve-msg',{
+            sender:data.from,
+            msg:data.msg
+
+        },err=>{
+            console.log(err)
+        })
+        socket.broadcast.emit('recieve-msg',{
+            sender:data.from,
+            msg:data.msg
+
+        },err=>{
+            console.log(err)
+        })
+    })
+  })
