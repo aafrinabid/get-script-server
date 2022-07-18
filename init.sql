@@ -60,7 +60,7 @@ CREATE TABLE script_detail(
     script_title VARCHAR NOT NULL,
     entertainment VARCHAR NOT NULL,
     script_type VARCHAR NOT NULL,
-    genres TEXT[] NOT NULL,
+    genres TEXT[scrip] NOT NULL,
     languages VARCHAR NOT NULL,
     description VARCHAR NOT NULL,
     is_deleted BOOLEAN NOT NULL,
@@ -100,3 +100,14 @@ CREATE TABLE script_media(
 
 );
 
+
+CREATE TABLE message(
+  message_id uuid,
+  reciever_id uuid,
+  updated_time VARCHAR NOT NULL,
+  FOREIGN KEY (message_id)
+   REFERENCES scriptwriter(scriptwriter_id)
+   FOREIGN KEY(reciever_id)
+   REFERENCES scriptwriter(scriptwriter_id)
+
+)

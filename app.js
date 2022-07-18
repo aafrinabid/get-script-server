@@ -7,13 +7,21 @@ const bcrypt=require('bcrypt');
 const cors=require('cors');
 const jwt=require('jsonwebtoken');
 const multer=require('multer');
-const cookieParser = require('cookie-parser');
-const session=require('express-session');
+const mongoose=require('mongoose');
+const messageModel = require('./model/messageModel');
+const socket=require('socket.io')
+
 
 
 app.use(express.json())
 app.use(express.urlencoded({extended:true}))
 app.use(cors())
+mongoose.connect(process.env.MONGO_URL,{
+    useNewUrlParser:true,
+    useUnifiedTopology:true,
+}).then(()=>{
+    console.log('connected with mongodatabase')
+});
 
 const s3 =new AWS.S3({
     accessKeyId:process.env.ACCESS_KEY_ID,
@@ -60,7 +68,16 @@ const verifyJwt=(req,res,next)=>{
     }
 
 }
-app.get('/isAuth',verifyJwt,async(req,res)=>{
+
+app.get('/getId',verifyJwt,(req,res)=>{
+const userId= req.userId
+const role=req.role
+res.json({userId,role})
+})
+
+
+
+app.get('/isAuth',verifyJwt,async(req,res,next)=>{
     try{console.log(process.env.BUCKET_STORAGE_URL)
         const token=req.headers['x-access-token'];
     const id=req.userId
@@ -488,7 +505,7 @@ app.get('/scriptdetails',async(req,res)=>{
         console.log(scriptId)
         // const scriptDetail= await pool.query(' select scriptwriter.username,script_detail.*,script_media.*,script_pitch.* from scripts join scriptwriter on scripts.scriptwriter_id = scriptwriter.scriptwriter_id join script_detail on scripts.script_id= $1 join script_media on scripts.script_id = $2 join script_pitch on scripts.script_id=$3',
         // [scriptId,scriptId,scriptId])
-          const scriptDetail= await pool.query(' select scriptwriter.username,script_detail.*,script_media.*,script_pitch.* from scripts join scriptwriter on scripts.scriptwriter_id = scriptwriter.scriptwriter_id join script_detail on scripts.script_id= script_detail.script_id join script_media on scripts.script_id = script_media.script_id join script_pitch on scripts.script_id=script_pitch.script_id WHERE scripts.script_id=$1',
+          const scriptDetail= await pool.query(' select scriptwriter.username,scriptwriter.scriptwriter_id,script_detail.*,script_media.*,script_pitch.* from scripts join scriptwriter on scripts.scriptwriter_id = scriptwriter.scriptwriter_id join script_detail on scripts.script_id= script_detail.script_id join script_media on scripts.script_id = script_media.script_id join script_pitch on scripts.script_id=script_pitch.script_id WHERE scripts.script_id=$1',
         [scriptId])
         const result=scriptDetail.rows[0]
         res.status(200).json({result})
@@ -511,9 +528,178 @@ app.get('/bannerscript',async(req,res)=>{
     }
    
 })
+// profile
+
+app.post('/getProfileInfo',async(req,res)=>{
+try{
+    console.log('insider')
+const {userid,role}=req.body
+console.log(req.body)
+console.log(userid)
+let details
+if(role==1){
+    console.log('in i n1111111')
+    details=await pool.query('SELECT scriptwriter.* FROM scriptwriter WHERE scriptwriter_id=$1',[userid])
+
+}else{
+    details=await pool.query('SELECT producers.* FROM producers WHERE producer_id=$1',[userid])
+}
+console.log(details.rows[0],'hiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii')
+
+res.json({result:details.rows[0]})
+}catch(e){
+console.log(e)
+}
+})
+//message
+app.post('/addMessage',async(req,res)=>{
+    try{
+        // console.log(req.body)/
+        const {from,to,message}=req.body;
+        const data= await messageModel.create({
+            message:{text:message},
+            users:[from,to],
+            sender:from,
+        });
+        console.log(data)
+        if (data) return res.json({ msg: "Message added successfully." });
+        else return res.json({ msg: "Failed to add message to the database" });
+      } catch (ex) {
+        console.log(ex)
+        res.json({message:ex})
+    }
+    })
+    
+    app.post('/getMessages',async (req, res, next) => {
+        try {
+            console.log('happening')
+          const { from, to } = req.body;
+      
+          const messages = await messageModel.find({
+            users: {
+              $all: [from, to],
+            },
+          }).sort({ updatedAt: 1 });
+          if(messages.length>0){
+            const projectedMessages = messages.map((msg) => {
+                return {
+                  fromSelf: msg.sender.toString() === from,
+                  message: msg.message.text,
+                };
+              });
+              res.json(projectedMessages);  
+          }
+          else{
+            res.json({messageStatus:false})
+          }
+        } catch (ex) {
+            console.log(ex)
+            res.json({message:ex})
+        //   next(ex);
+        }
+      })
 
 
+      app.post('/messagedetail',async(req,res)=>{
+        try{console.log('*****************************')
+            const {userid}=req.body
+            // console.log(req.body,recieverid)
+     const data=await pool.query('SELECT * FROM message WHERE message_id=$1  ORDER BY updated_time DESC',[userid])
+     if(data.rowCount>0){
+        res.json({result:data.rows})
+     }
 
-app.listen(4000,()=>{
+    }catch(e){
+        console.error(e)
+
+        }
+      })
+
+      app.post('/userDetails',async(req,res)=>{
+        try{
+            const {id}=req.body
+            const {role}=req.body
+            console.log(req.body)
+            let data
+            if(role==1){
+                 data=await pool.query('SELECT username from scriptwriter WHERE scriptwriter_id=$1',[id])
+      
+            }
+            if(role===2){
+               data=await pool.query('SELECT username from producers WHERE producer_id=$1',[id])
+      
+          }
+          if(role===3){
+               data=await pool.query('SELECT username from adminPanel WHERER admin_id=$1',[id])
+          }
+          console.log(data)
+          res.json({username:data.rows[0].username})
+            }catch(e){
+                console.error(e)
+            }      
+        }
+       )
+
+
+      app.post('/messagelist',async(req,res)=>{
+        try{
+            const {senderId,recieverId,date}=req.body;
+            if(senderId===recieverId){
+                console.log('cream')
+                return res.json({message:'same peroson'})
+            }
+            const message= await pool.query('SELECT * FROM message WHERE message_id=$1 AND reciever_id=$2',[senderId,recieverId])
+            if(message.rowCount>0){
+              return  res.json({message:'exist'})
+            }
+            console.log(senderId,recieverId,date)
+            await pool.query('INSERT INTO message(message_id,reciever_id,updated_time) VALUES($1,$2,$3)',[senderId,recieverId,date])
+            await pool.query('INSERT INTO message(message_id,reciever_id,updated_time) VALUES($1,$2,$3)',[recieverId,senderId,date])
+
+          res.json({message:'success'})
+  
+        }catch(e){
+            console.error(e)
+  
+        }
+    })
+
+
+app.listen(3500,()=>{
     console.log('listening at 4000')
 })
+
+const io =require('socket.io')(3001,{
+    cors:{
+      origin:['http://localhost:3000'],
+      methods: ["GET", "POST"],
+      transports: ['websocket', 'polling'],
+      credentials: true
+    },
+  })
+
+global.onlineUsers= new Map();
+  io.on('connection',socket=>{
+    // console.log(socket.id)
+    global.chatSocket=socket;
+    socket.on('send-msg',(data)=>{
+        console.log('hiiiii goood',data)
+        // const message=data.msg;
+        // const sender=data.from;
+        // const reciever=data.to
+        socket.emit('recieve-msg',{
+            sender:data.from,
+            msg:data.msg
+
+        },err=>{
+            console.log(err)
+        })
+        socket.broadcast.emit('recieve-msg',{
+            sender:data.from,
+            msg:data.msg
+
+        },err=>{
+            console.log(err)
+        })
+    })
+  })
