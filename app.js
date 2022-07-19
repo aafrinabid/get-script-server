@@ -689,14 +689,18 @@ global.onlineUsers= new Map();
         // const reciever=data.to
         socket.emit('recieve-msg',{
             sender:data.from,
-            msg:data.msg
+            msg:data.msg,
+            reciever:data.to
+
+            
 
         },err=>{
             console.log(err)
         })
         socket.broadcast.emit('recieve-msg',{
             sender:data.from,
-            msg:data.msg
+            msg:data.msg,
+            reciever:data.to
 
         },err=>{
             console.log(err)
