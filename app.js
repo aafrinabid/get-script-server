@@ -687,23 +687,20 @@ global.onlineUsers= new Map();
         // const message=data.msg;
         // const sender=data.from;
         // const reciever=data.to
-        socket.emit('recieve-msg',{
+       
+        io.emit('recieve-msg',{
             sender:data.from,
             msg:data.msg,
             reciever:data.to
 
             
 
-        },err=>{
-            console.log(err)
         })
-        socket.broadcast.emit('recieve-msg',{
-            sender:data.from,
-            msg:data.msg,
-            reciever:data.to
+        // socket.broadcast.emit('recieve-msg',{
+        //     sender:data.from,
+        //     msg:data.msg,
+        //     reciever:data.to
 
-        },err=>{
-            console.log(err)
-        })
+        // })
     })
   })
