@@ -111,3 +111,38 @@ CREATE TABLE message(
    REFERENCES scriptwriter(scriptwriter_id)
 
 )
+
+CREATE TABLE producers (
+    id uuid DEFAULT uuid_generate_v4 (),
+    username VARCHAR NOT NULL,
+    email VARCHAR NOT NULL,
+    password VARCHAR NOT NULL,
+    firstName VARCHAR NOT NULL,
+    lastName VARCHAR NOT NULL,
+    status VARCHAR NOT NULL,
+    is_deleted BOOLEAN NOT NULL,
+    TYPE VARCHAR NOT NULL,
+    PRIMARY KEY (id)
+);
+
+CREATE TABLE messages(
+  message_id uuid,
+  reciever_id uuid,
+  updated_time VARCHAR NOT NULL,
+  FOREIGN KEY (message_id)
+   REFERENCES users(id)
+   FOREIGN KEY(reciever_id)
+   REFERENCES users(id)
+
+)
+
+
+CREATE TABLE script(
+    scriptwriter_id uuid,
+    script_id uuid DEFAULT uuid_generate_v4 (),
+    is_deleted BOOLEAN NOT NULL,
+    PRIMARY KEY (script_id)
+    FOREIGN KEY (scriptwriter_id)
+    REFERENCES users(id)
+
+);
