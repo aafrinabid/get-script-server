@@ -702,8 +702,6 @@ global.onlineUsers= new Map();
 
             
 
-        },err=>{
-            console.log(err)
         })
         socket.broadcast.emit('recieve-msg',{
             sender:data.from,
