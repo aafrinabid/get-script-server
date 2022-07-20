@@ -686,7 +686,7 @@ const io =require('socket.io')(3001,{
     },
   })
 
-global.onlineUsers= new Map();
+  global.onlineUsers= new Map();
   io.on('connection',socket=>{
     // console.log(socket.id)
     global.chatSocket=socket;
@@ -695,7 +695,8 @@ global.onlineUsers= new Map();
         // const message=data.msg;
         // const sender=data.from;
         // const reciever=data.to
-        socket.emit('recieve-msg',{
+       
+        io.emit('recieve-msg',{
             sender:data.from,
             msg:data.msg,
             reciever:data.to
@@ -703,13 +704,11 @@ global.onlineUsers= new Map();
             
 
         })
-        socket.broadcast.emit('recieve-msg',{
-            sender:data.from,
-            msg:data.msg,
-            reciever:data.to
+        // socket.broadcast.emit('recieve-msg',{
+        //     sender:data.from,
+        //     msg:data.msg,
+        //     reciever:data.to
 
-        },err=>{
-            console.log(err)
-        })
+        // })
     })
   })
