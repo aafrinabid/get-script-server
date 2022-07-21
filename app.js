@@ -592,7 +592,7 @@ app.post('/addMessage',async(req,res)=>{
                   message: msg.message.text,
                 };
               });
-              res.json(projectedMessages);  
+              res.json({projectedMessages,from,to});  
           }
           else{
             res.json({messageStatus:false})
@@ -649,6 +649,8 @@ app.post('/addMessage',async(req,res)=>{
        )
 
 
+
+
       app.post('/messagelist',async(req,res)=>{
         try{
             const {senderId,recieverId,date}=req.body;
@@ -669,6 +671,18 @@ app.post('/addMessage',async(req,res)=>{
         }catch(e){
             console.error(e)
   
+        }
+    })
+
+    app.post('/messageId',async(req,res)=>{
+        try{
+            const {userid,recieverid}=req.body
+            console.log(req.body)
+            const data= await pool.query('select message_id,reciever_id from messages where message_id=$1 and reciever_id=$2',[userid,recieverid])
+            console.log(data)
+            res.json({messageId:data.rows[0].message_id,recieverId:data.rows[0].reciever_id})
+        }catch(e){
+            console.log(e)
         }
     })
 
