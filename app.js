@@ -89,7 +89,7 @@ app.get('/isAuth',verifyJwt,async(req,res,next)=>{
     console.log('sfjkskf')
 
 
-           const result=await pool.query('SELECT * FROM scriptwriter WHERE scriptwriter_id=$1',[id])
+           const result=await pool.query('SELECT * FROM users WHERE id=$1',[id])
            console.log(result.rows)
            status=result.rows[0]['status']
            console.log(status,'coool')
@@ -101,7 +101,7 @@ app.get('/isAuth',verifyJwt,async(req,res,next)=>{
     }
     if(role===2){
     console.log('user is script producer');
-    const result=await pool.query('SELECT * FROM producers WHERE producer_id=$1',[id])
+    const result=await pool.query('SELECT * FROM users WHERE id=$1',[id])
     console.log(result.rows)
     status=result.rows[0]['status']
     console.log('sfjkskf')
@@ -116,7 +116,7 @@ app.get('/isAuth',verifyJwt,async(req,res,next)=>{
     console.log('sfjkskf')
 
 
-           const result=await pool.query('SELECT * FROM adminPanel WHERE admin_id=$1',[id])
+           const result=await pool.query('SELECT * FROM users WHERE admin_id=$1',[id])
            console.log(result.rows)
            status='approved'
            console.log(status,'coool')
@@ -133,6 +133,8 @@ app.get('/isAuth',verifyJwt,async(req,res,next)=>{
     }
 })
 //producer
+
+
 app.post('/registerProducer',async(req,res)=>{
     try{
         const {username,password,email,firstName,lastName}=req.body;
@@ -141,8 +143,8 @@ app.post('/registerProducer',async(req,res)=>{
         //     console.log('not happening in usernaem')
         //     res.status(400).json({auth:false,message:'username already exist'})
         // }
-        const user=await pool.query('SELECT * FROM producers WHERE username=$1',[username]);
-        const useremail= await pool.query('SELECT * FROM producers WHERE email=$1',[email])
+        const user=await pool.query('SELECT * FROM users WHERE username=$1',[username]);
+        const useremail= await pool.query('SELECT * FROM users WHERE email=$1',[email])
         console.log(user)
         if(user.rowCount>0){
            throw new Error('Person with this username already exist') 
@@ -154,9 +156,9 @@ app.post('/registerProducer',async(req,res)=>{
             
          const hashPassword=await bcrypt.hash(password,10);
          console.log(hashPassword)
-         const NewUser=await pool.query('INSERT INTO producers(username,email,firstname,lastname,password,status,is_deleted) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',
-         [username,email,firstName,lastName,hashPassword,'pending',false]);
-         const id= NewUser.rows[0].producer_id
+         const NewUser=await pool.query('INSERT INTO users(username,email,firstname,lastname,password,status,is_deleted,TYPE) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
+         [username,email,firstName,lastName,hashPassword,'pending',false,'producer']);
+         const id= NewUser.rows[0].id
          const role=2
          const token= jwt.sign({id,role},'jwtsecret',{
             expiresIn:3000,
@@ -173,12 +175,12 @@ app.post('/loginProducer',async(req,res)=>{
     try{
         const {username,password}=req.body
         console.log(req.body)
-        const user= await pool.query('SELECT * FROM producers WHERE username=$1',[username])
+        const user= await pool.query('SELECT * FROM users WHERE username=$1 AND TYPE=$2',[username,'producer'])
         if(user.rowCount===1){
             console.log(user.rows[0].password)
             const compPass= await bcrypt.compare(password,user.rows[0].password)
             if(compPass){
-                const id=user.rows[0].producer_id
+                const id=user.rows[0].id
                 const role=2
                 const status=user.rows[0].status
                 const token= jwt.sign({id,role},'jwtsecret',{
@@ -207,8 +209,8 @@ app.post('/registerScriptwriter',async(req,res)=>{
     try{
         const {username,password,email,firstName,lastName}=req.body;
         console.log(password,username)
-        const user=await pool.query('SELECT * FROM scriptwriter WHERE username=$1',[username]);
-        const useremail= await pool.query('SELECT * FROM scriptwriter WHERE email=$1',[email])
+        const user=await pool.query('SELECT * FROM users WHERE username=$1 AND TYPE=$2',[username,'scriptwriter']);
+        const useremail= await pool.query('SELECT * FROM users WHERE email=$1 AND TYPE=$2',[email,'scriptwriter'])
         console.log(user)
         if(user.rowCount>0){
            throw new Error('Person with this username already exist') 
@@ -220,9 +222,9 @@ app.post('/registerScriptwriter',async(req,res)=>{
             
          const hashPassword=await bcrypt.hash(password,10);
          console.log(hashPassword)
-         const NewUser=await pool.query('INSERT INTO scriptwriter(username,email,firstname,lastname,password,status,is_deleted) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',
-         [username,email,firstName,lastName,hashPassword,'approved',false]);
-         const id= NewUser.rows[0].scriptwriter_id
+         const NewUser=await pool.query('INSERT INTO users(username,email,firstname,lastname,password,status,is_deleted,TYPE) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
+         [username,email,firstName,lastName,hashPassword,'approved',false,'scriptwriter']);
+         const id= NewUser.rows[0].id
          const role=1
          const token= jwt.sign({id,role},'jwtsecret',{
             expiresIn:3000,
@@ -238,12 +240,12 @@ app.post('/loginScriptwriter',async(req,res)=>{
     try{
         const {username,password}=req.body
         console.log(req.body)
-        const user= await pool.query('SELECT * FROM scriptwriter WHERE username=$1',[username])
+        const user= await pool.query('SELECT * FROM users WHERE username=$1 AND TYPE=$2',[username,'scriptwriter'])
         if(user.rowCount===1){
             console.log(user.rows[0].password)
             const compPass= await bcrypt.compare(password,user.rows[0].password)
             if(compPass){
-                const id=user.rows[0].scriptwriter_id
+                const id=user.rows[0].id
                 const status=user.rows[0].status
                 const role=1
                 const token= jwt.sign({id,role},'jwtsecret',{
@@ -262,6 +264,7 @@ app.post('/loginScriptwriter',async(req,res)=>{
             }
         }
     }catch(e){
+        console.log(e)
         res.status(400).json({message:e.message})
     }
 })
@@ -271,7 +274,7 @@ app.post('/approved',async(req,res)=>{
     try{
         const {id}=req.body;
         console.log(id)
-        const result=await pool.query('UPDATE producers SET status=$1 WHERE producer_id=$2 RETURNING status',['approved',id])
+        const result=await pool.query('UPDATE users SET status=$1 WHERE id=$2 RETURNING status',['approved',id])
 
         console.log(result)
         if(result.rows[0]['status']==='approved'){
@@ -290,7 +293,7 @@ app.post('/approved',async(req,res)=>{
 
 app.post('/reject',async(req,res)=>{
 try{const {id}=req.body;
-const result=await pool.query('UPDATE producers SET is_deleted=$1,status=$2 WHERE producer_id=$3 RETURNING is_deleted,status',[true,'rejected',id])
+const result=await pool.query('UPDATE users SET is_deleted=$1,status=$2 WHERE id=$3 RETURNING is_deleted,status',[true,'rejected',id])
 console.log(result.rows[0])
 if(result.rows[0]['is_deleted']){
 
@@ -306,7 +309,7 @@ if(result.rows[0]['is_deleted']){
 
 app.get('/fetchProducers',async(req,res)=>{
     try{
-        const fetchedProducers=await pool.query('SELECT * FROM producers WHERE is_deleted=$1' ,[false])
+        const fetchedProducers=await pool.query('SELECT * FROM users WHERE is_deleted=$1 AND TYPE=$2' ,[false,'producer'])
         const result=fetchedProducers.rows;
         console.log(result)
 
@@ -320,15 +323,15 @@ app.get('/fetchProducers',async(req,res)=>{
 
 app.get('/getUserCount',async(req,res)=>{
     try{
-        const producers=await pool.query('SELECT COUNT(producer_id) FROM producers WHERE status=$1',['approved'])
-        const pendingProducers=await pool.query('SELECT COUNT(producer_id) FROM producers WHERE status=$1',['pending'])
-        const declinedProducers=await pool.query('SELECT COUNT(producer_id) FROM producers WHERE status=$1',['rejected'])
+        const producers=await pool.query('SELECT COUNT(id) FROM producers WHERE status=$1 AND TYPE=$2',['approved','producer'])
+        const pendingProducers=await pool.query('SELECT COUNT(id) FROM producers WHERE status=$1 AND TYPE=$2 ',['pending','producer'])
+        const declinedProducers=await pool.query('SELECT COUNT(id) FROM producers WHERE status=$1 TYPE=$2',['rejected','producer'])
         const producerCount=parseInt(producers.rows[0].count) 
         const pendingProducersCount=parseInt(pendingProducers.rows[0].count)
         const declinedProducersCount=parseInt(declinedProducers.rows[0].count)
 
-        const scriptwriters=await pool.query('SELECT COUNT(scriptwriter_id) FROM scriptwriter WHERE status=$1',['approved'])
-        const declinedScriptwriters=await pool.query('SELECT COUNT(scriptwriter_id) FROM scriptwriter WHERE status=$1',['rejected'])
+        const scriptwriters=await pool.query('SELECT COUNT(id) FROM scriptwriter WHERE status=$1 TYPE=$2',['approved','scriptwriter'])
+        const declinedScriptwriters=await pool.query('SELECT COUNT(id) FROM scriptwriter WHERE status=$1 TYPE=$2',['rejected','scriptwriter'])
         const scriptwriterCount=parseInt(scriptwriters.rows[0].count)
         const declinedScriptwritersCount=parseInt(declinedScriptwriters.rows[0].count)
 
@@ -346,7 +349,7 @@ app.get('/getUserCount',async(req,res)=>{
 app.post('/adminlogin',async(req,res)=>{
     try{
         const {username,password}=req.body;
-        const admin=await pool.query('SELECT * FROM adminPanel WHERE username=$1',[username])
+        const admin=await pool.query('SELECT * FROM users WHERE username=$1',[username])
         if(admin.rowCount===1){
             if(admin.rows[0]['password']===password){
                 console.log(admin.rows[0])
@@ -370,7 +373,7 @@ app.post('/adminlogin',async(req,res)=>{
 })
 
 app.get('/fetchnotification',async(req,res)=>{
-    const pendingRequests=await pool.query('SELECT * FROM producers WHERE status=$1',['pending'])
+    const pendingRequests=await pool.query('SELECT * FROM users WHERE status=$1 AND TYPE=$2',['pending','producer'])
     if(pendingRequests.rowCount>0){
         const result=pendingRequests.rows
 
@@ -445,7 +448,7 @@ app.post('/scriptupload',verifyJwt,async(req,res)=>{
         const entertainmentType=typeHandler(data.entertainmentType,'entertainment')
         const scriptType=typeHandler(data.scriptType,'script')
         console.log(entertainmentType,scriptType)
-        const script=await pool.query('INSERT INTO scripts(scriptwriter_id,is_deleted) VALUES($1,$2) RETURNING script_id',
+        const script=await pool.query('INSERT INTO script(scriptwriter_id,is_deleted) VALUES($1,$2) RETURNING script_id',
         [id,false])
         console.log(script)
        
@@ -502,15 +505,17 @@ app.get('/fetchscript',async(req,res)=>{
 app.get('/scriptdetails',async(req,res)=>{
     try{
         const scriptId=req.headers['scriptid']
-        console.log(scriptId)
+        console.log(scriptId,'*****^^^^^^*****')
         // const scriptDetail= await pool.query(' select scriptwriter.username,script_detail.*,script_media.*,script_pitch.* from scripts join scriptwriter on scripts.scriptwriter_id = scriptwriter.scriptwriter_id join script_detail on scripts.script_id= $1 join script_media on scripts.script_id = $2 join script_pitch on scripts.script_id=$3',
         // [scriptId,scriptId,scriptId])
-          const scriptDetail= await pool.query(' select scriptwriter.username,scriptwriter.scriptwriter_id,script_detail.*,script_media.*,script_pitch.* from scripts join scriptwriter on scripts.scriptwriter_id = scriptwriter.scriptwriter_id join script_detail on scripts.script_id= script_detail.script_id join script_media on scripts.script_id = script_media.script_id join script_pitch on scripts.script_id=script_pitch.script_id WHERE scripts.script_id=$1',
+          const scriptDetail= await pool.query('select users.username,users.id,script_detail.*,script_media.*,script_pitch.* from script join users on script.scriptwriter_id = users.id join script_detail on script.script_id= script_detail.script_id join script_media on script.script_id = script_media.script_id join script_pitch on script.script_id=script_pitch.script_id WHERE script.script_id=$1',
         [scriptId])
+        console.log('nodejsssssssssss',scriptDetail.rows[0])
         const result=scriptDetail.rows[0]
+        console.log(result)
         res.status(200).json({result})
     }catch(e){
-        res.status(400).json({message:e.message})
+        res.status(404).json({message:e.message})
 
     }
     
@@ -537,13 +542,13 @@ const {userid,role}=req.body
 console.log(req.body)
 console.log(userid)
 let details
-if(role==1){
-    console.log('in i n1111111')
-    details=await pool.query('SELECT scriptwriter.* FROM scriptwriter WHERE scriptwriter_id=$1',[userid])
+// if(role==1){
+//     console.log('in i n1111111')
+//     details=await pool.query('SELECT users.* FROM users WHERE scriptwriter_id=$1',[userid])
 
-}else{
-    details=await pool.query('SELECT producers.* FROM producers WHERE producer_id=$1',[userid])
-}
+// }else{
+    details=await pool.query('SELECT users.* FROM users WHERE id=$1',[userid])
+// }
 console.log(details.rows[0],'hiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii')
 
 res.json({result:details.rows[0]})
@@ -587,7 +592,7 @@ app.post('/addMessage',async(req,res)=>{
                   message: msg.message.text,
                 };
               });
-              res.json(projectedMessages);  
+              res.json({projectedMessages,from,to});  
           }
           else{
             res.json({messageStatus:false})
@@ -603,9 +608,11 @@ app.post('/addMessage',async(req,res)=>{
       app.post('/messagedetail',async(req,res)=>{
         try{console.log('*****************************')
             const {userid}=req.body
-            // console.log(req.body,recieverid)
-     const data=await pool.query('SELECT * FROM message WHERE message_id=$1  ORDER BY updated_time DESC',[userid])
+            console.log(req.body)
+     const data=await pool.query('SELECT * FROM messages WHERE message_id=$1  ORDER BY updated_time DESC',[userid])
+    console.log(data)
      if(data.rowCount>0){
+
         res.json({result:data.rows})
      }
 
@@ -621,17 +628,18 @@ app.post('/addMessage',async(req,res)=>{
             const {role}=req.body
             console.log(req.body)
             let data
-            if(role==1){
-                 data=await pool.query('SELECT username from scriptwriter WHERE scriptwriter_id=$1',[id])
+            data=await pool.query('SELECT username from users WHERE id=$1',[id])
+        //     if(role==1){
+        //          data=await pool.query('SELECT username from scriptwriter WHERE scriptwriter_id=$1',[id])
       
-            }
-            if(role===2){
-               data=await pool.query('SELECT username from producers WHERE producer_id=$1',[id])
+        //     }
+        //     if(role===2){
+        //        data=await pool.query('SELECT username from producers WHERE producer_id=$1',[id])
       
-          }
-          if(role===3){
-               data=await pool.query('SELECT username from adminPanel WHERER admin_id=$1',[id])
-          }
+        //   }
+        //   if(role===3){
+        //        data=await pool.query('SELECT username from adminPanel WHERER admin_id=$1',[id])
+        //   }
           console.log(data)
           res.json({username:data.rows[0].username})
             }catch(e){
@@ -641,6 +649,8 @@ app.post('/addMessage',async(req,res)=>{
        )
 
 
+
+
       app.post('/messagelist',async(req,res)=>{
         try{
             const {senderId,recieverId,date}=req.body;
@@ -648,19 +658,31 @@ app.post('/addMessage',async(req,res)=>{
                 console.log('cream')
                 return res.json({message:'same peroson'})
             }
-            const message= await pool.query('SELECT * FROM message WHERE message_id=$1 AND reciever_id=$2',[senderId,recieverId])
+            const message= await pool.query('SELECT * FROM messages WHERE message_id=$1 AND reciever_id=$2',[senderId,recieverId])
             if(message.rowCount>0){
               return  res.json({message:'exist'})
             }
             console.log(senderId,recieverId,date)
-            await pool.query('INSERT INTO message(message_id,reciever_id,updated_time) VALUES($1,$2,$3)',[senderId,recieverId,date])
-            await pool.query('INSERT INTO message(message_id,reciever_id,updated_time) VALUES($1,$2,$3)',[recieverId,senderId,date])
+            await pool.query('INSERT INTO messages(message_id,reciever_id,updated_time) VALUES($1,$2,$3)',[senderId,recieverId,date])
+            await pool.query('INSERT INTO messages(message_id,reciever_id,updated_time) VALUES($1,$2,$3)',[recieverId,senderId,date])
 
           res.json({message:'success'})
   
         }catch(e){
             console.error(e)
   
+        }
+    })
+
+    app.post('/messageId',async(req,res)=>{
+        try{
+            const {userid,recieverid}=req.body
+            console.log(req.body)
+            const data= await pool.query('select message_id,reciever_id from messages where message_id=$1 and reciever_id=$2',[userid,recieverid])
+            console.log(data)
+            res.json({messageId:data.rows[0].message_id,recieverId:data.rows[0].reciever_id})
+        }catch(e){
+            console.log(e)
         }
     })
 
@@ -678,7 +700,7 @@ const io =require('socket.io')(3001,{
     },
   })
 
-global.onlineUsers= new Map();
+  global.onlineUsers= new Map();
   io.on('connection',socket=>{
     // console.log(socket.id)
     global.chatSocket=socket;
