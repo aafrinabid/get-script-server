@@ -609,7 +609,7 @@ app.post('/addMessage',async(req,res)=>{
         try{console.log('*****************************')
             const {userid}=req.body
             console.log(req.body)
-     const data=await pool.query('SELECT * FROM messages WHERE message_id=$1  ORDER BY updated_time DESC',[userid])
+     const data=await pool.query('SELECT * FROM msg WHERE sender_id=$1  ORDER BY updated_time DESC',[userid])
     console.log(data)
      if(data.rowCount>0){
 
@@ -658,15 +658,15 @@ app.post('/addMessage',async(req,res)=>{
                 console.log('cream')
                 return res.json({message:'same peroson'})
             }
-            const message= await pool.query('SELECT * FROM messages WHERE message_id=$1 AND reciever_id=$2',[senderId,recieverId])
+            const message= await pool.query('SELECT * FROM msg WHERE sender_id=$1 AND reciever_id=$2',[senderId,recieverId])
             if(message.rowCount>0){
               return  res.json({message:'exist'})
             }
             console.log(senderId,recieverId,date)
-            await pool.query('INSERT INTO messages(message_id,reciever_id,updated_time) VALUES($1,$2,$3)',[senderId,recieverId,date])
-            await pool.query('INSERT INTO messages(message_id,reciever_id,updated_time) VALUES($1,$2,$3)',[recieverId,senderId,date])
+            const id = await pool.query('INSERT INTO msg (sender_id,reciever_id,updated_time) VALUES($1,$2,$3) RETURNING message_id',[senderId,recieverId,date])
+            await pool.query('INSERT INTO msg(message_id,sender_id,reciever_id,updated_time) VALUES($1,$2,$3,$4)',[id.rows[0].message_id,recieverId,senderId,date])
 
-          res.json({message:'success'})
+          res.json({message:'success',messageId:id.rows[0].message_id})
   
         }catch(e){
             console.error(e)

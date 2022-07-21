@@ -112,7 +112,7 @@ CREATE TABLE message(
 
 )
 
-CREATE TABLE producers (
+CREATE TABLE users (
     id uuid DEFAULT uuid_generate_v4 (),
     username VARCHAR NOT NULL,
     email VARCHAR NOT NULL,
@@ -146,3 +146,17 @@ CREATE TABLE script(
     REFERENCES users(id)
 
 );
+
+
+CREATE TABLE msg(
+  message_id uuid DEFAULT uuid_generate_v4 (),
+  sender_id uuid,
+  reciever_id uuid,
+  updated_time VARCHAR NOT NULL,
+  PRIMARY KEY (message_id)
+   FOREIGN KEY (sender_id)
+   REFERENCES users(id)
+   FOREIGN KEY(reciever_id)
+   REFERENCES users(id)
+
+)
