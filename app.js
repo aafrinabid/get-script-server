@@ -608,7 +608,7 @@ app.post('/addMessage',async(req,res)=>{
       app.post('/messagedetail',async(req,res)=>{
         try{console.log('*****************************')
             const {userid}=req.body
-            console.log(req.body)
+            console.log(req.body,'messageid')
      const data=await pool.query('SELECT * FROM msg WHERE sender_id=$1  ORDER BY updated_time DESC',[userid])
     console.log(data)
      if(data.rowCount>0){
@@ -678,9 +678,9 @@ app.post('/addMessage',async(req,res)=>{
         try{
             const {userid,recieverid}=req.body
             console.log(req.body)
-            const data= await pool.query('select message_id,reciever_id from messages where message_id=$1 and reciever_id=$2',[userid,recieverid])
+            const data= await pool.query('select message_id,reciever_id,sender_id from msg where sender_id=$1 and reciever_id=$2',[userid,recieverid])
             console.log(data)
-            res.json({messageId:data.rows[0].message_id,recieverId:data.rows[0].reciever_id})
+            res.json({messageId:data.rows[0].message_id,recieverId:data.rows[0].reciever_id,senderId:data.rows[0].sender_id})
         }catch(e){
             console.log(e)
         }
@@ -702,18 +702,33 @@ const io =require('socket.io')(3001,{
 
   global.onlineUsers= new Map();
   io.on('connection',socket=>{
-    // console.log(socket.id)
+    // console.log(socket.rooms)
     global.chatSocket=socket;
+    socket.on('join room',room=>{
+        console.log(room,'*************************',socket.id)
+        socket.join(room)
+        socket.emit('joined room',{
+            message:`succesfully joined room${room}`,
+            state:true,
+            room:room
+        })
+    })
+    socket.on('leave room',room=>{
+        console.log(room,'leaveing')
+        socket.leave(room)
+    })
     socket.on('send-msg',(data)=>{
         console.log('hiiiii goood',data)
         // const message=data.msg;
         // const sender=data.from;
         // const reciever=data.to
+        const room=data.room
        
-        io.emit('recieve-msg',{
+        io.to(room).emit('recieve-msg',{
             sender:data.from,
             msg:data.msg,
-            reciever:data.to
+            reciever:data.to,
+            room:data.room
 
             
 
