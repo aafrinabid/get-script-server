@@ -674,6 +674,17 @@ app.post('/addMessage',async(req,res)=>{
         }
     })
 
+    app.post('/updateMessageList',async(req,res)=>{
+        try{
+ const {date,messageId}=req.body
+ await pool.query('update msg set updated_time=$1 where message_id=$2',[date,messageId])
+ res.json({message:'success'})
+        }catch(e){
+
+            console.log(e)
+        }
+    })
+
     app.post('/messageId',async(req,res)=>{
         try{
             const {userid,recieverid}=req.body
