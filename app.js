@@ -9,7 +9,8 @@ const jwt=require('jsonwebtoken');
 const multer=require('multer');
 const mongoose=require('mongoose');
 const messageModel = require('./model/messageModel');
-const socket=require('socket.io')
+const socket=require('socket.io');
+const e = require('express');
 
 
 
@@ -608,9 +609,7 @@ app.post('/addMessage',async(req,res)=>{
       app.post('/messagedetail',async(req,res)=>{
         try{console.log('*****************************')
             const {userid}=req.body
-            console.log(req.body,'messageid')
      const data=await pool.query('SELECT * FROM msg WHERE sender_id=$1  ORDER BY updated_time DESC',[userid])
-    console.log(data)
      if(data.rowCount>0){
 
         res.json({result:data.rows})
@@ -728,8 +727,22 @@ const io =require('socket.io')(3001,{
         console.log(room,'leaveing')
         socket.leave(room)
     })
+    socket.on('fetch-list',async(data)=>{
+        try{
+            console.log(data,'ehrere is it man')
+            const list=await pool.query('SELECT * FROM msg WHERE sender_id=$1  ORDER BY updated_time DESC',[data.userId])
+            console.log(list.rows,'seeen')
+            socket.emit('list',{
+                users:list.rows
+            })        
+        }catch(e){
+            console.log(e)
+        }
+    
+    })
     socket.on('send-msg',(data)=>{
         console.log('hiiiii goood',data)
+        socket.broadcast.emit('update-list',data.date)
         // const message=data.msg;
         // const sender=data.from;
         // const reciever=data.to
