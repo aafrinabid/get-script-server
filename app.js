@@ -490,7 +490,7 @@ app.get('/fetchscript',async(req,res)=>{
 
         const scripts=await pool.query('SELECT  script_detail.script_id,script_detail.script_title,script_detail.genres,script_media.script_poster FROM script_detail JOIN script_media ON script_detail.script_id = script_media.script_id WHERE $1= ANY(script_detail.genres);',[genre])
         const result=scripts.rows
-        console.log(result)
+        // console.log(result)
         res.status(200).json({result,genre})
 
     }catch(e){
@@ -709,6 +709,7 @@ const io =require('socket.io')(3001,{
       credentials: true
     },
   })
+  let onlineUsers=[]
 
   global.onlineUsers= new Map();
   io.on('connection',socket=>{
@@ -718,6 +719,62 @@ const io =require('socket.io')(3001,{
         console.log('joined the chat',data)
         socket.join(data)
     }))
+    socket.on('online',async(data)=>{
+        socket.join(data.room)
+        console.log('onlinehandler*************************************',onlineUsers)
+        const existingUser=await pool.query('select * from onlineusers where user_id=$1',[data.userId])
+        if(existingUser.rowCount>0){
+            if(existingUser.rows[0].online_status===false){
+                await pool.query('update onlineusers  set online_status=$1 where user_id=$2',[true,data.userId])
+            }else{
+
+                return
+            }
+        }else{
+            await pool.query('insert into onlineusers (user_id,online_status) values($1,$2)',[data.userId,true])
+
+        }
+        // const exitstingUserIndex=onlineUsers.findIndex((user=>user==data.userId))
+        // const existingUser=onlineUsers[exitstingUserIndex]
+        // if(existingUser){
+        //     return
+        // }else{
+        //     onlineUsers.push(data.userId)
+            
+        // }
+        // console.log(onlineUsers)
+        // io.to(data.room).emit('isOnline',{
+        //     users:onlineUsers
+        // })
+      
+        
+       
+    })
+
+    socket.on('checkOnline',async(x)=>{
+        const currentUsers=await pool.query('select * from onlineusers where user_id=$1',[x])
+        console.log(currentUsers.rows[0],x,'(((((((((((((((())))))))))))))))))))))))))))))))))))')
+        io.to('room').emit('isOnline',{
+            status:currentUsers.rows[0].online_status,
+            data:currentUsers.rows[0]
+        })
+    })
+
+
+    socket.on('offline',async(data)=>{
+        console.log('leaving the getScript&&&&&&&&&&&&&&&&&&&&&&&&&')
+        socket.leave('room')
+        await pool.query('update onlineusers  set online_status=$1 where user_id=$2',[false,data.userId])
+        
+        // let currentOnlineUser=onlineUsers.filter(user=>user!==data.userId)
+        //  onlineUsers=currentOnlineUser
+        //  console.log(onlineUsers)
+
+        // io.to('room').emit('latestStatus',{
+        //   users:currentOnlineUser
+        // })
+    })
+   
     socket.on('join room',room=>{
         console.log(room,'*************************',socket.id)
         socket.join(room)

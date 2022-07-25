@@ -161,7 +161,12 @@ CREATE TABLE msg(
    REFERENCES users(id)
 
 )
-
+  CREATE TABLE onlineusers(
+    user_id uuid,
+    online_status BOOLEAN,
+    FOREIGN KEY(user_id)
+    REFERENCES users(id)
+  )
 
 -- CREATE TABLE lastmsg (
 --     message_id uuid DEFAULT uuid_generate_v4 (),
