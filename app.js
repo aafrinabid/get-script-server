@@ -9,7 +9,8 @@ const jwt=require('jsonwebtoken');
 const multer=require('multer');
 const mongoose=require('mongoose');
 const messageModel = require('./model/messageModel');
-const socket=require('socket.io')
+const socket=require('socket.io');
+const e = require('express');
 
 
 
@@ -608,9 +609,7 @@ app.post('/addMessage',async(req,res)=>{
       app.post('/messagedetail',async(req,res)=>{
         try{console.log('*****************************')
             const {userid}=req.body
-            console.log(req.body,'messageid')
      const data=await pool.query('SELECT * FROM msg WHERE sender_id=$1  ORDER BY updated_time DESC',[userid])
-    console.log(data)
      if(data.rowCount>0){
 
         res.json({result:data.rows})
@@ -674,6 +673,17 @@ app.post('/addMessage',async(req,res)=>{
         }
     })
 
+    app.post('/updateMessageList',async(req,res)=>{
+        try{
+ const {date,messageId,message}=req.body
+ await pool.query('update msg set updated_time=$1,last_msg=$2 where message_id=$3',[date,message,messageId])
+ res.json({message:'success'})
+        }catch(e){
+
+            console.log(e)
+        }
+    })
+
     app.post('/messageId',async(req,res)=>{
         try{
             const {userid,recieverid}=req.body
@@ -704,6 +714,10 @@ const io =require('socket.io')(3001,{
   io.on('connection',socket=>{
     // console.log(socket.rooms)
     global.chatSocket=socket;
+    socket.on('join-chat',(data=>{
+        console.log('joined the chat',data)
+        socket.join(data)
+    }))
     socket.on('join room',room=>{
         console.log(room,'*************************',socket.id)
         socket.join(room)
@@ -717,8 +731,33 @@ const io =require('socket.io')(3001,{
         console.log(room,'leaveing')
         socket.leave(room)
     })
+    socket.on('fetch-list',async(data)=>{
+        try{
+            console.log(data,'ehrere is it man')
+            const list=await pool.query('SELECT * FROM msg WHERE sender_id=$1  ORDER BY updated_time DESC',[data.userId])
+            console.log(list.rows,'seeen')
+            socket.emit('list',{
+                users:list.rows
+            })        
+        }catch(e){
+            console.log(e)
+        }
+    
+    })
+    socket.on('fetch-msg',async(data)=>{
+    try{
+const msg=await pool.query('select * from msg where sender_id=$1 ORDER BY updated_time DESC',[data.userId])
+ socket.emit('last-msg',msg.rows)
+    }catch(e){
+console.log(e)    
+    }
+    })
     socket.on('send-msg',(data)=>{
         console.log('hiiiii goood',data)
+        socket.broadcast.emit('update-list',data.date)
+        io.to(data.to).emit('notifies',{
+            messageid:data.room
+        })
         // const message=data.msg;
         // const sender=data.from;
         // const reciever=data.to
