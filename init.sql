@@ -153,6 +153,7 @@ CREATE TABLE msg(
   sender_id uuid,
   reciever_id uuid,
   updated_time VARCHAR NOT NULL,
+  last_msg VARCHAR NOT NULL,
   PRIMARY KEY (message_id)
    FOREIGN KEY (sender_id)
    REFERENCES users(id)
@@ -160,3 +161,9 @@ CREATE TABLE msg(
    REFERENCES users(id)
 
 )
+
+
+-- CREATE TABLE lastmsg (
+--     message_id uuid DEFAULT uuid_generate_v4 (),
+--     sender_id  
+-- )
