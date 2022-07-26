@@ -477,14 +477,14 @@ app.get('/fetchscript',async(req,res)=>{
         const genre=req.headers["genre"];
         const inDetail=req.headers["indetail"]
         console.log(req.headers['scriptid'])
-        console.log(genre)
-        console.log(inDetail)
+        // console.log(genre)
+        // console.log(inDetail)
         if(inDetail==='true'){
             console.log('in detail')
             const scriptId=req.headers['scriptid']
             const scripts=await pool.query('SELECT  script_detail.script_id,script_detail.script_title,script_detail.genres,script_media.script_poster FROM script_detail JOIN script_media ON script_detail.script_id = script_media.script_id WHERE $1= ANY(script_detail.genres) AND script_detail.script_id != $2;',[genre,scriptId])
             const result=scripts.rows
-            console.log(result)
+            // console.log(result)
            return res.status(200).json({result,genre})
         }
 
@@ -506,7 +506,7 @@ app.get('/fetchscript',async(req,res)=>{
 app.get('/scriptdetails',async(req,res)=>{
     try{
         const scriptId=req.headers['scriptid']
-        console.log(scriptId,'*****^^^^^^*****')
+        // console.log(scriptId,'*****^^^^^^*****')
         // const scriptDetail= await pool.query(' select scriptwriter.username,script_detail.*,script_media.*,script_pitch.* from scripts join scriptwriter on scripts.scriptwriter_id = scriptwriter.scriptwriter_id join script_detail on scripts.script_id= $1 join script_media on scripts.script_id = $2 join script_pitch on scripts.script_id=$3',
         // [scriptId,scriptId,scriptId])
           const scriptDetail= await pool.query('select users.username,users.id,script_detail.*,script_media.*,script_pitch.* from script join users on script.scriptwriter_id = users.id join script_detail on script.script_id= script_detail.script_id join script_media on script.script_id = script_media.script_id join script_pitch on script.script_id=script_pitch.script_id WHERE script.script_id=$1',
@@ -525,7 +525,7 @@ app.get('/scriptdetails',async(req,res)=>{
 app.get('/bannerscript',async(req,res)=>{
     try{
         const scripts=await pool.query('SELECT  script_detail.script_id,script_detail.script_title,script_detail.description,script_media.script_pdf_url,script_media.script_poster FROM script_detail JOIN script_media ON script_detail.script_id = script_media.script_id')
-        console.log(scripts.rowCount)
+        // console.log(scripts.rowCount)
         const index=Math.floor(Math.random()*scripts.rowCount)
         const result=scripts.rows[index]
         res.status(200).json({result})
@@ -701,25 +701,27 @@ app.listen(3500,()=>{
     console.log('listening at 4000')
 })
 const jwtVerify=(token)=>{
-
+    let userId
     if(!token){
         res.send('no token is there')
     }else{
         jwt.verify(token,"jwtsecret",(err,decoded)=>{
             if(err){
-                const userId=false
-                return userId
+                 userId=false
+                console.log(userId)
             }else{
                 console.log('success verification');
-                const userId=decoded.id;
+                 userId=decoded.id;
+                console.log(userId)
                 // req.role=decoded.role
-                return userId 
+                // return decoded.id 
                 // next();
                
                //  console.log(req.userId)
             }
         })
     }
+    return userId
 
 }
 
@@ -736,18 +738,19 @@ const io =require('socket.io')(3001,{
 
   global.onlineUsers= new Map();
   io.use(async function (socket, next) {
-    if (socket.handshake.query && socket.handshake.query.token) {
+    if (socket.handshake.auth && socket.handshake.auth.token) {
         console.log('Inside');
-        const userId = await jwtVerify(socket.handshake.query.token);
+        const userId =  jwtVerify(socket.handshake.auth.token);
         console.log(userId, "-----------------------------------------payload")
         socket['userId'] = userId;
+        console.log(socket.userId,socket.id)
         next();
     } else {
         // socket.leave('room')
         next(new Error('Authentication error'));
     }
 })
-  io.on('connection',socket=>{
+  .on('connection',socket=>{
     // console.log(socket.rooms)
     global.chatSocket=socket;
     socket.on('join-chat',(data=>{
@@ -756,6 +759,9 @@ const io =require('socket.io')(3001,{
     }))
     socket.on('online',async(data)=>{
         if(socket.userId){
+            console.log('joinginign ingnignini')
+
+
             socket.join(data.room)
             io.to(data.room).emit('addUserOnline',{
                 userId:socket.userId,
@@ -763,6 +769,7 @@ const io =require('socket.io')(3001,{
             }
                 ) 
         }else{
+            console.log('leeaving rom amigooooos')
             socket.leave('room')
             socket.to('room').emit('offlineUsers',{
                 socketId:socket.id
@@ -810,10 +817,10 @@ const io =require('socket.io')(3001,{
         // // })
     })
    
-    socket.on('join room',room=>{
+    socket.on('join-room',room=>{
         console.log(room,'*************************',socket.id)
         socket.join(room)
-        socket.emit('joined room',{
+        socket.emit('joined-room',{
             message:`succesfully joined room${room}`,
             state:true,
             room:room
