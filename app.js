@@ -816,6 +816,10 @@ const io =require('socket.io')(3001,{
         // //   users:currentOnlineUser
         // // })
     })
+    socket.on('changeOnline',(data)=>{
+        console.log(data,'shits hapeniung cool strut')
+        io.to('room').emit('modify',data.users)
+    })
    
     socket.on('join-room',room=>{
         console.log(room,'*************************',socket.id)
