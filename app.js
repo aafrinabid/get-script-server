@@ -724,6 +724,7 @@ const jwtVerify=(token)=>{
     return userId
 
 }
+let onlineUsers=[]
 
 
 const io =require('socket.io')(3001,{
@@ -734,7 +735,6 @@ const io =require('socket.io')(3001,{
       credentials: true
     },
   })
-  let onlineUsers=[]
 
   global.onlineUsers= new Map();
   io.use(async function (socket, next) {
@@ -763,9 +763,30 @@ const io =require('socket.io')(3001,{
 
 
             socket.join(data.room)
-            io.to(data.room).emit('addUserOnline',{
-                userId:socket.userId,
-                socketId:socket.id
+            const existingIndex=onlineUsers.findIndex(user=>user.userId===socket.userId)
+            const existingUser=onlineUsers[existingIndex]
+            let updatedlist
+            if(existingUser){
+                if(existingUser.socketId===socket.id){
+                    return
+                }else{
+                    const updatedUser={...existingUser,socketId:socket.id}
+                    updatedlist=[...onlineUsers]
+                    updatedlist[existingIndex]=updatedUser
+                }
+            }else{
+                console.log(onlineUsers,'snakes here*************&&&&&&&')
+                updatedlist=onlineUsers.concat({userId:socket.userId,socketId:socket.id})
+                console.log(updatedlist,'fuck sake')
+                // state.users=[...state.users,action.payload.users]
+
+
+            }
+            onlineUsers=updatedlist
+            console.log(onlineUsers,'safwan loves kimiko')
+            // onlineUsers.push({userId:socket.userId,socketId:socket.id})
+            io.to('room').emit('addUserOnline',{
+                onlineUsers
             }
                 ) 
         }else{
