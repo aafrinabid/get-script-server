@@ -806,6 +806,18 @@ const io =require('socket.io')(3001,{
             userId:data.userId
            
           })
+
+          socket.on('newUsers',(data)=>{
+            console.log(data,'sick of this')
+            // data.onlineUsers.filter(dat=>dat.socketId!==data.socketId).map(dat=>{
+            //     io.to(dat.socket.id).emit('changeIt',{
+            //         users:data.onlineUsers
+            //     })
+            // })
+            io.to('room').emit('changeIt',{
+                users:data.onlineUsers
+            })
+          })
         // await pool.query('update onlineusers  set online_status=$1 where user_id=$2',[false,data.userId])
         
         // // let currentOnlineUser=onlineUsers.filter(user=>user!==data.userId)
