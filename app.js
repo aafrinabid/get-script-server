@@ -477,20 +477,20 @@ app.get('/fetchscript',async(req,res)=>{
         const genre=req.headers["genre"];
         const inDetail=req.headers["indetail"]
         console.log(req.headers['scriptid'])
-        console.log(genre)
-        console.log(inDetail)
+        // console.log(genre)
+        // console.log(inDetail)
         if(inDetail==='true'){
             console.log('in detail')
             const scriptId=req.headers['scriptid']
             const scripts=await pool.query('SELECT  script_detail.script_id,script_detail.script_title,script_detail.genres,script_media.script_poster FROM script_detail JOIN script_media ON script_detail.script_id = script_media.script_id WHERE $1= ANY(script_detail.genres) AND script_detail.script_id != $2;',[genre,scriptId])
             const result=scripts.rows
-            console.log(result)
+            // console.log(result)
            return res.status(200).json({result,genre})
         }
 
         const scripts=await pool.query('SELECT  script_detail.script_id,script_detail.script_title,script_detail.genres,script_media.script_poster FROM script_detail JOIN script_media ON script_detail.script_id = script_media.script_id WHERE $1= ANY(script_detail.genres);',[genre])
         const result=scripts.rows
-        console.log(result)
+        // console.log(result)
         res.status(200).json({result,genre})
 
     }catch(e){
@@ -506,7 +506,7 @@ app.get('/fetchscript',async(req,res)=>{
 app.get('/scriptdetails',async(req,res)=>{
     try{
         const scriptId=req.headers['scriptid']
-        console.log(scriptId,'*****^^^^^^*****')
+        // console.log(scriptId,'*****^^^^^^*****')
         // const scriptDetail= await pool.query(' select scriptwriter.username,script_detail.*,script_media.*,script_pitch.* from scripts join scriptwriter on scripts.scriptwriter_id = scriptwriter.scriptwriter_id join script_detail on scripts.script_id= $1 join script_media on scripts.script_id = $2 join script_pitch on scripts.script_id=$3',
         // [scriptId,scriptId,scriptId])
           const scriptDetail= await pool.query('select users.username,users.id,script_detail.*,script_media.*,script_pitch.* from script join users on script.scriptwriter_id = users.id join script_detail on script.script_id= script_detail.script_id join script_media on script.script_id = script_media.script_id join script_pitch on script.script_id=script_pitch.script_id WHERE script.script_id=$1',
@@ -525,7 +525,7 @@ app.get('/scriptdetails',async(req,res)=>{
 app.get('/bannerscript',async(req,res)=>{
     try{
         const scripts=await pool.query('SELECT  script_detail.script_id,script_detail.script_title,script_detail.description,script_media.script_pdf_url,script_media.script_poster FROM script_detail JOIN script_media ON script_detail.script_id = script_media.script_id')
-        console.log(scripts.rowCount)
+        // console.log(scripts.rowCount)
         const index=Math.floor(Math.random()*scripts.rowCount)
         const result=scripts.rows[index]
         res.status(200).json({result})
@@ -700,6 +700,32 @@ app.post('/addMessage',async(req,res)=>{
 app.listen(3500,()=>{
     console.log('listening at 4000')
 })
+const jwtVerify=(token)=>{
+    let userId
+    if(!token){
+        res.send('no token is there')
+    }else{
+        jwt.verify(token,"jwtsecret",(err,decoded)=>{
+            if(err){
+                 userId=false
+                console.log(userId)
+            }else{
+                console.log('success verification');
+                 userId=decoded.id;
+                console.log(userId)
+                // req.role=decoded.role
+                // return decoded.id 
+                // next();
+               
+               //  console.log(req.userId)
+            }
+        })
+    }
+    return userId
+
+}
+let onlineUsers=[]
+
 
 const io =require('socket.io')(3001,{
     cors:{
@@ -711,17 +737,134 @@ const io =require('socket.io')(3001,{
   })
 
   global.onlineUsers= new Map();
-  io.on('connection',socket=>{
+  io.use(async function (socket, next) {
+    if (socket.handshake.auth && socket.handshake.auth.token) {
+        console.log('Inside');
+        const userId =  jwtVerify(socket.handshake.auth.token);
+        console.log(userId, "-----------------------------------------payload")
+        socket['userId'] = userId;
+        console.log(socket.userId,socket.id)
+        next();
+    } else {
+        // socket.leave('room')
+        next(new Error('Authentication error'));
+    }
+})
+  .on('connection',socket=>{
     // console.log(socket.rooms)
     global.chatSocket=socket;
     socket.on('join-chat',(data=>{
         console.log('joined the chat',data)
         socket.join(data)
     }))
-    socket.on('join room',room=>{
+    socket.on('online',async(data)=>{
+        if(socket.userId){
+            console.log('joinginign ingnignini')
+
+
+            socket.join(data.room)
+            const existingIndex=onlineUsers.findIndex(user=>user.userId===socket.userId)
+            const existingUser=onlineUsers[existingIndex]
+            let updatedlist
+            if(existingUser){
+                if(existingUser.socketId===socket.id){
+                    return
+                }else{
+                    const updatedUser={...existingUser,socketId:socket.id}
+                    updatedlist=[...onlineUsers]
+                    updatedlist[existingIndex]=updatedUser
+                }
+            }else{
+                console.log(onlineUsers,'snakes here*************&&&&&&&')
+                updatedlist=onlineUsers.concat({userId:socket.userId,socketId:socket.id})
+                console.log(updatedlist,'fuck sake')
+                // state.users=[...state.users,action.payload.users]
+
+
+            }
+            onlineUsers=updatedlist
+            console.log(onlineUsers,'safwan loves kimiko')
+            // onlineUsers.push({userId:socket.userId,socketId:socket.id})
+            io.to('room').emit('addUserOnline',{
+                onlineUsers
+            }
+                ) 
+        }else{
+            console.log('leeaving rom amigooooos')
+            socket.leave('room')
+            const updatedList=state.onlineUsers.filter(user=>user.socketId!==socket.id)
+            onlineUsers=updatedList
+            socket.to('room').emit('offlineUsers',{
+                socketId:socket.id
+
+            })
+        }
+       
+        // console.log('onlinehandler*************************************',onlineUsers)
+        socket.on('checkonline',data=>{
+            io.to('room').emit('isonline',{
+                status:true,
+                id:socket.id
+              })
+        })
+      
+       
+    })
+
+    // socket.on('checkOnline',async(x)=>{
+    //     const currentUsers=await pool.query('select * from onlineusers where user_id=$1',[x])
+    //     console.log(currentUsers.rows[0],x,'(((((((((((((((())))))))))))))))))))))))))))))))))))')
+    //     io.to('room').emit('isOnline',{
+    //         status:currentUsers.rows[0].online_status,
+    //         data:currentUsers.rows[0]
+    //     })
+    // })
+
+
+    socket.on('offline',async(data)=>{
+        console.log('leaving the getScript&&&&&&&&&&&&&&&&&&&&&&&&&')
+        socket.leave('room')
+        console.log('offflineeees')
+        const updatedList=onlineUsers.filter(user=>user.userId!==data.userId)
+        onlineUsers=updatedList
+        console.log('logingo ut users is ',onlineUsers)
+
+
+        io.to('room').emit('isonline',{
+            userId:data.userId
+           
+          })
+
+          socket.on('newUsers',(data)=>{
+            console.log(data,'sick of this')
+            // data.onlineUsers.filter(dat=>dat.socketId!==data.socketId).map(dat=>{
+            //     io.to(dat.socket.id).emit('changeIt',{
+            //         users:data.onlineUsers
+            //     })
+            // })
+            io.to('room').emit('changeIt',{
+                users:data.onlineUsers
+            })
+          })
+        // await pool.query('update onlineusers  set online_status=$1 where user_id=$2',[false,data.userId])
+        
+        // // let currentOnlineUser=onlineUsers.filter(user=>user!==data.userId)
+        // //  onlineUsers=currentOnlineUser
+        // //  console.log(onlineUsers)
+
+        // // io.to('room').emit('latestStatus',{
+        // //   users:currentOnlineUser
+        // // })
+    })
+    socket.on('changeOnline',(data)=>{
+        console.log(data,'shits hapeniung cool strut')
+        io.to('room').emit('modify',data.users)
+    })
+   
+    socket.on('join-room',room=>{
         console.log(room,'*************************',socket.id)
         socket.join(room)
-        socket.emit('joined room',{
+        socket.emit('joined-room',{
             message:`succesfully joined room${room}`,
             state:true,
             room:room
