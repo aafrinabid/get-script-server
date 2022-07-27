@@ -792,6 +792,8 @@ const io =require('socket.io')(3001,{
         }else{
             console.log('leeaving rom amigooooos')
             socket.leave('room')
+            const updatedList=state.onlineUsers.filter(user=>user.socketId!==socket.id)
+            onlineUsers=updatedList
             socket.to('room').emit('offlineUsers',{
                 socketId:socket.id
 
@@ -823,6 +825,11 @@ const io =require('socket.io')(3001,{
         console.log('leaving the getScript&&&&&&&&&&&&&&&&&&&&&&&&&')
         socket.leave('room')
         console.log('offflineeees')
+        const updatedList=onlineUsers.filter(user=>user.userId!==data.userId)
+        onlineUsers=updatedList
+        console.log('logingo ut users is ',onlineUsers)
+
+
         io.to('room').emit('isonline',{
             userId:data.userId
            
