@@ -922,4 +922,16 @@ console.log(e)
 
         // })
     })
+    socket.on('callUser',(data)=>{
+        console.log(data,'calli ng the fuck user')
+        onlineUsers.filter(user=>user.userId===data.recieverId).map((user)=>{
+            console.log(user,'calllllllllllllllllllllll')
+            io.to(user.socketId).emit('recieveCall',{signal:data.signalData,from:socket.userId,username:data.name})
+        })
+    })
+    socket.on('answerCall',data=>{
+        onlineUsers.filter(user=>user.userId===data.to).map((user)=>{
+            io.to(user.socketId).emit('callAccepted',data.signal)
+        })
+    })
   })
