@@ -725,9 +725,18 @@ const jwtVerify=(token)=>{
 
 }
 let onlineUsers=[]
+let videoUsers=[]
 
 
 const io =require('socket.io')(3001,{
+    cors:{
+      origin:['http://localhost:3000'],
+      methods: ["GET", "POST"],
+      transports: ['websocket', 'polling'],
+      credentials: true
+    },
+  })
+  const jo =require('socket.io')(3002,{
     cors:{
       origin:['http://localhost:3000'],
       methods: ["GET", "POST"],
@@ -745,12 +754,59 @@ const io =require('socket.io')(3001,{
         socket['userId'] = userId;
         console.log(socket.userId,socket.id)
         next();
-    } else {
+    } 
+    // if (socket.handshake.auth && socket.handshake.auth.video) {
+    //     console.log('Inside');
+    //     const userId =  jwtVerify(socket.handshake.auth.token);
+    //     console.log(userId, "-----------------------------------------payload")
+    //     socket['userId'] = userId;
+    //     console.log(socket.userId,socket.id)
+    //     next();
+    // }
+     else {
         // socket.leave('room')
         next(new Error('Authentication error'));
     }
 })
   .on('connection',socket=>{
+    // socket.on('joinVideo',data=>{
+    //     if(socket.userId){
+    //         console.log('joinginign video')
+
+
+    //         // socket.join(data.room)
+    //         const existingIndex=videoUsers.findIndex(user=>user.userId===socket.userId)
+    //         const existingUser=videoUsers[existingIndex]
+    //         let updatedlist
+    //         if(existingUser){
+    //             if(existingUser.socketId===socket.id){
+    //                 return
+    //             }else{
+    //                 const updatedUser={...existingUser,socketId:socket.id}
+    //                 updatedlist=[...onlineUsers]
+    //                 updatedlist[existingIndex]=updatedUser
+    //             }
+    //         }else{
+    //             console.log(videoUsers,'sfriessss here*************&&&&&&&')
+    //             updatedlist=videoUsers.concat({userId:socket.userId,socketId:socket.id})
+    //             console.log(updatedlist,'friessss')
+    //             // state.users=[...state.users,action.payload.users]
+
+
+    //         }
+    //         videoUsers=updatedlist
+    //         console.log(videoUsers,'s=hari kdii')
+    //     }else{
+    //         console.log('leeaving rom amigooooos')
+    //         // socket.leave('room')
+    //         const updatedList=videoUsers.filter(user=>user.socketId!==socket.id)
+    //         onlineUsers=updatedList
+    //         // socket.to('room').emit('videoUsers',{
+    //         //     socketId:socket.id
+
+    //         // })
+    //     }
+    // })
     // console.log(socket.rooms)
     global.chatSocket=socket;
     socket.on('join-chat',(data=>{
@@ -922,16 +978,82 @@ console.log(e)
 
         // })
     })
+   
+  })
+
+  jo.use(async function (socket, next) {
+    if (socket.handshake.auth && socket.handshake.auth.token) {
+        console.log('Inside');
+        const userId =  jwtVerify(socket.handshake.auth.token);
+        console.log(userId, "-----------------------------------------payload")
+        socket['userId'] = userId;
+        console.log(socket.userId,socket.id)
+        next();
+    } 
+    // if (socket.handshake.auth && socket.handshake.auth.video) {
+    //     console.log('Inside');
+    //     const userId =  jwtVerify(socket.handshake.auth.token);
+    //     console.log(userId, "-----------------------------------------payload")
+    //     socket['userId'] = userId;
+    //     console.log(socket.userId,socket.id)
+    //     next();
+    // }
+     else {
+        // socket.leave('room')
+        next(new Error('Authentication error'));
+    }
+})
+
+jo.on('connection',socket=>{
+    socket.on('joinVideo',data=>{
+        if(socket.userId){
+            console.log('joinginign video')
+
+
+            // socket.join(data.room)
+            const existingIndex=videoUsers.findIndex(user=>user.userId===socket.userId)
+            const existingUser=videoUsers[existingIndex]
+            let updatedlist
+            if(existingUser){
+                if(existingUser.socketId===socket.id){
+                    return
+                }else{
+                    const updatedUser={...existingUser,socketId:socket.id}
+                    updatedlist=[...videoUsers]
+                    updatedlist[existingIndex]=updatedUser
+                }
+            }else{
+                console.log(videoUsers,'sfriessss here*************&&&&&&&')
+                updatedlist=videoUsers.concat({userId:socket.userId,socketId:socket.id})
+                console.log(updatedlist,'friessss')
+                // state.users=[...state.users,action.payload.users]
+
+
+            }
+            videoUsers=updatedlist
+            console.log(videoUsers,'s=hari kdii')
+        }else{
+            console.log('leeaving rom amigooooos')
+            // socket.leave('room')
+            const updatedList=videoUsers.filter(user=>user.socketId!==socket.id)
+            videoUsers=updatedList
+            // socket.to('room').emit('videoUsers',{
+            //     socketId:socket.id
+
+            // })
+        }
+    })
     socket.on('callUser',(data)=>{
         console.log(data,'calli ng the fuck user')
-        onlineUsers.filter(user=>user.userId===data.recieverId).map((user)=>{
+        videoUsers.filter(user=>user.userId===data.id).map((user)=>{
             console.log(user,'calllllllllllllllllllllll')
+            console.log(user)
             io.to(user.socketId).emit('recieveCall',{signal:data.signalData,from:socket.userId,username:data.name})
         })
     })
     socket.on('answerCall',data=>{
-        onlineUsers.filter(user=>user.userId===data.to).map((user)=>{
+        videoUsers.filter(user=>user.userId===data.to).map((user)=>{
             io.to(user.socketId).emit('callAccepted',data.signal)
         })
     })
-  })
+})
