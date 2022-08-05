@@ -2,6 +2,7 @@ require('dotenv').config()
 const express=require('express');
 const AWS= require('aws-sdk');
 const app=express()
+const {v4:uuidv4}=require('uuid4')
 const pool=require('./db');
 const bcrypt=require('bcrypt');
 const cors=require('cors');
@@ -10,7 +11,7 @@ const multer=require('multer');
 const mongoose=require('mongoose');
 const messageModel = require('./model/messageModel');
 const socket=require('socket.io');
-const e = require('express');
+const PaytmChecksum=require('./PaytmChecksum')
 
 
 
@@ -695,7 +696,37 @@ app.post('/addMessage',async(req,res)=>{
             console.log(e)
         }
     })
+//paytm payment
+app.post('/payment',(req,res)=>{
+    /* import checksum generation utility */
 
+var paytmParams = {};
+
+/* initialize an array */
+paytmParams["MID"] = "YOUR_MID_HERE",
+paytmParams["ORDER_ID"] = "YOUR_ORDER_ID_HERE",
+paytmParams["CHANNEL_ID"]=
+paytmParams["WEBSITE"]=
+paytmParams['O']
+paytmParams["INDUSTRY_TYPE_ID"]=
+paytmParams["CUST_ID"]=
+paytmParams["TXN_AMOUNT"]='100',
+paytmParams["CALLBACK_URL"]='http://localhost:3500/payment/callback',
+paytmParams['MOBILE_NO']='8075551056',
+paytmParams["EMAIL"]='ABC@gmail.com'
+
+
+/**
+* Generate checksum by parameters we have
+* Find your Merchant Key in your Paytm Dashboard at https://dashboard.paytm.com/next/apikeys 
+*/
+var paytmChecksum = PaytmChecksum.generateSignature(paytmParams, "YOUR_MERCHANT_KEY");
+paytmChecksum.then(function(checksum){
+	console.log("generateSignature Returns: " + checksum);
+}).catch(function(error){
+	console.log(error);
+});
+})
 
 app.listen(3500,()=>{
     console.log('listening at 4000')
