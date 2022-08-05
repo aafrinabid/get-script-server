@@ -978,6 +978,34 @@ console.log(e)
 
         // })
     })
+    // socket.on('callUser',(data)=>{
+    //     console.log(data,'calli ng the fuck user')
+    //     console.log(videoUsers,'all the list')
+    //     console.log(onlineUsers,'all the list')
+
+    //     onlineUsers.filter(user=>user.userId===data.id).map((user)=>{
+    //         console.log(user,'calllllllllllllllllllllll')
+    //         console.log(user)
+    //        io.to(user.socketId).emit('recieveCall',{signal:data.signalData,from:socket.userId})
+    //         // jo.to(user.socketId).emit('recieveCall',{signal:data.signalData,from:socket.userId,username:data.name})
+    //         // var clients = jo.sockets.clients();
+    //         // console.log(clients)
+    //     })
+    // })
+    // socket.on('answerCall',data=>{
+    //     console.log(data,'answring')
+    //     onlineUsers.filter(user=>user.userId===data.to).map((user)=>{
+    //         console.log('answering registinring ',user)
+    //         io.to(user.socketId).emit('callAccepted',{signal:data.signal,userId:socket.userId})
+    //     })
+    // })
+
+    // socket.on('endCall',(data)=>{
+    //     console.log(data,'ending')
+    //     onlineUsers.filter(user=>user.userId===data).map((user)=>{
+    //         io.to(user.socketId).emit('callEnded')
+    //     })
+    // })
    
   })
 
@@ -988,24 +1016,6 @@ console.log(e)
         console.log(userId, "-----------------------------------------payload")
         socket['userId'] = userId;
         console.log(socket.userId,socket.id)
-        next();
-    } 
-    // if (socket.handshake.auth && socket.handshake.auth.video) {
-    //     console.log('Inside');
-    //     const userId =  jwtVerify(socket.handshake.auth.token);
-    //     console.log(userId, "-----------------------------------------payload")
-    //     socket['userId'] = userId;
-    //     console.log(socket.userId,socket.id)
-    //     next();
-    // }
-     else {
-        // socket.leave('room')
-        next(new Error('Authentication error'));
-    }
-})
-
-jo.on('connection',socket=>{
-    socket.on('joinVideo',data=>{
         if(socket.userId){
             console.log('joinginign video')
 
@@ -1042,18 +1052,50 @@ jo.on('connection',socket=>{
 
             // })
         }
-    })
-    socket.on('callUser',(data)=>{
+        next();
+    } 
+    // if (socket.handshake.auth && socket.handshake.auth.video) {
+    //     console.log('Inside');
+    //     const userId =  jwtVerify(socket.handshake.auth.token);
+    //     console.log(userId, "-----------------------------------------payload")
+    //     socket['userId'] = userId;
+    //     console.log(socket.userId,socket.id)
+    //     next();
+    // }
+     else {
+        // socket.leave('room')
+        next(new Error('Authentication error'));
+    }
+})
+
+jo.on('connection',socket=>{
+        
+    socket.on('callUser',async(data)=>{
+
         console.log(data,'calli ng the fuck user')
+        console.log(videoUsers,'all the list in joooo side')
+        const roomId=await pool.query('Select message_id from msg where sender_id=$1 and reciever_id=$2',[socket.userId,data.id])
+        console.log(roomId.rows[0])
+        socket.join(roomId.rows[0].message_id)
+        // console.log(onlineUsers,'all the list')
+
         videoUsers.filter(user=>user.userId===data.id).map((user)=>{
             console.log(user,'calllllllllllllllllllllll')
             console.log(user)
-            io.to(user.socketId).emit('recieveCall',{signal:data.signalData,from:socket.userId,username:data.name})
+           jo.to(user.socketId).emit('recieveCall',{signal:data.signalData,from:socket.userId,socketId:socket.id,roomId:roomId.rows[0].message_id})
+            // jo.to(user.socketId).emit('recieveCall',{signal:data.signalData,from:socket.userId,username:data.name})
+            // var clients = jo.sockets.clients();
+            // console.log(clients)
         })
     })
     socket.on('answerCall',data=>{
-        videoUsers.filter(user=>user.userId===data.to).map((user)=>{
-            io.to(user.socketId).emit('callAccepted',data.signal)
-        })
+        console.log(data,'answring')
+        console.log(videoUsers,'answering side')
+        socket.join(data.roomId)
+        socket.to(data.roomId).emit('callAccepted',{signal:data.signal,userId:socket.userId})
+
+        // onlineUsers.filter(user=>user.userId===data.to).map((user)=>{
+        //     console.log(user)
+        // })
     })
 })
