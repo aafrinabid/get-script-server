@@ -1,8 +1,9 @@
 require('dotenv').config()
+const formidable=require('formidable')
 const express=require('express');
 const AWS= require('aws-sdk');
 const app=express()
-const {v4:uuidv4}=require('uuid4')
+const {v4:uuidv4}=require('uuid')
 const pool=require('./db');
 const bcrypt=require('bcrypt');
 const cors=require('cors');
@@ -12,11 +13,14 @@ const mongoose=require('mongoose');
 const messageModel = require('./model/messageModel');
 const socket=require('socket.io');
 const PaytmChecksum=require('./PaytmChecksum')
+const https=require('https');
+const { request } = require('http');
 
 
 
-app.use(express.json())
-app.use(express.urlencoded({extended:true}))
+
+// app.use(express.json())
+// app.use(express.urlencoded({extended:true}))
 app.use(cors())
 mongoose.connect(process.env.MONGO_URL,{
     useNewUrlParser:true,
@@ -697,36 +701,155 @@ app.post('/addMessage',async(req,res)=>{
         }
     })
 //paytm payment
-app.post('/payment',(req,res)=>{
+app.post('/payment',express.json(),(req,res)=>{
+
+    const {amount,email}=req.body
+    console.log(req.body)
+    const totalAmount=JSON.stringify(amount)
     /* import checksum generation utility */
 
-var paytmParams = {};
+var params = {};
 
 /* initialize an array */
-paytmParams["MID"] = "YOUR_MID_HERE",
-paytmParams["ORDER_ID"] = "YOUR_ORDER_ID_HERE",
-paytmParams["CHANNEL_ID"]=
-paytmParams["WEBSITE"]=
-paytmParams['O']
-paytmParams["INDUSTRY_TYPE_ID"]=
-paytmParams["CUST_ID"]=
-paytmParams["TXN_AMOUNT"]='100',
-paytmParams["CALLBACK_URL"]='http://localhost:3500/payment/callback',
-paytmParams['MOBILE_NO']='8075551056',
-paytmParams["EMAIL"]='ABC@gmail.com'
+params["MID"] = process.env.Merchant_ID,
+params["ORDER_ID"] =uuidv4(),
+params["CHANNEL_ID"]=process.env.Channel_ID,
+params["WEBSITE"]=process.env.Website,
+params["INDUSTRY_TYPE_ID"]=process.env.Industry_Type,
+params["CUST_ID"]=process.env.Cust_Id,
+params["TXN_AMOUNT"]=totalAmount,
+params["CALLBACK_URL"]='http://localhost:3500/payment/callback',
+params['MOBILE_NO']='807551056',
+params["EMAIL"]=email
+console.log(params)
 
 
 /**
 * Generate checksum by parameters we have
 * Find your Merchant Key in your Paytm Dashboard at https://dashboard.paytm.com/next/apikeys 
 */
-var paytmChecksum = PaytmChecksum.generateSignature(paytmParams, "YOUR_MERCHANT_KEY");
+var paytmChecksum = PaytmChecksum.generateSignature(params,process.env.Merchant_Key);
 paytmChecksum.then(function(checksum){
-	console.log("generateSignature Returns: " + checksum);
+    let paytmParams={
+        ...params,
+        "CHECKSUMHASH":checksum
+    }
+    res.json(paytmParams)
 }).catch(function(error){
 	console.log(error);
 });
 })
+
+app.post('/payment/callback',(req,res)=>{
+
+    const form=new formidable.IncomingForm();
+    
+    form.parse(req,(err,fields,file)=>
+    {
+        
+    
+    
+    
+    
+    
+    
+    
+    
+    paytmChecksum =fields.CHECKSUMHASH;
+    delete fields.CHECKSUMHASH;
+    
+    var isVerifySignature = PaytmChecksum.verifySignature(fields, process.env.Merchant_Key, paytmChecksum);
+    if (isVerifySignature) {
+        console.log(fields)
+    
+    
+    
+    
+    
+    
+    
+    
+        var paytmParams = {};
+        paytmParams["MID"]     = fields.MID;
+        paytmParams["ORDER_ID"] = fields.ORDERID;
+        
+        /*
+        * Generate checksum by parameters we have
+        * Find your Merchant Key in your Paytm Dashboard at https://dashboard.paytm.com/next/apikeys 
+        */
+        PaytmChecksum.generateSignature(paytmParams, process.env.Merchant_Key).then(function(checksum){
+        
+            paytmParams["CHECKSUMHASH"] = checksum;
+        
+            var post_data = JSON.stringify(paytmParams);
+        
+            var options = {
+        
+                /* for Staging */
+                hostname: 'securegw-stage.paytm.in',
+        
+                /* for Production */
+                // hostname: 'securegw.paytm.in',
+        
+                port: 443,
+                path: '/order/status',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Content-Length': post_data.length
+                }
+            };
+        
+            var response = "";
+            var post_req = https.request(options, function(post_res) {
+                post_res.on('data', function (chunk) {
+                    response += chunk;
+                });
+        
+                post_res.on('end', function(){
+                             let result=JSON.parse(response)
+                            if(result.STATUS==='TXN_SUCCESS')
+                            {
+                                console.log(result)
+                                res.json(result)
+                                //store in db
+                            //     db.collection('payments').doc('mPDd5z0pNiInbSIIotfj').update({paymentHistory:firebase.firestore.FieldValue.arrayUnion(result)})
+                            //     .then(()=>console.log("Update success"))
+                            //     .catch(()=>console.log("Unable to update"))
+                            // }
+    
+                            // res.redirect(`http://localhost:3000/status/${result.ORDERID}`)
+    
+                            }
+                });
+            });
+        
+            post_req.write(post_data);
+            post_req.end();
+        });        
+        form.on('error', function(err) { console.log(err); });
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    } else {
+        console.log("Checksum Mismatched");
+    }
+    
+    
+    
+    
+    
+    
+    })
+    
+    })
+
 
 app.listen(3500,()=>{
     console.log('listening at 4000')
