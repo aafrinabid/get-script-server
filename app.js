@@ -454,8 +454,8 @@ app.post('/scriptupload',verifyJwt,async(req,res)=>{
         const entertainmentType=typeHandler(data.entertainmentType,'entertainment')
         const scriptType=typeHandler(data.scriptType,'script')
         console.log(entertainmentType,scriptType)
-        const script=await pool.query('INSERT INTO script(scriptwriter_id,is_deleted) VALUES($1,$2) RETURNING script_id',
-        [id,false])
+        const script=await pool.query('INSERT INTO script(scriptwriter_id,featured,is_deleted) VALUES($1,$2,$3) RETURNING script_id',
+        [id,false,false])
         console.log(script)
        
         const  scriptId=script.rows[0]['script_id']
@@ -468,7 +468,7 @@ app.post('/scriptupload',verifyJwt,async(req,res)=>{
     
         await pool.query('INSERT INTO script_media(script_id,script_pdf_url,script_poster,script_mini_poster,script_video,is_deleted) VALUES($1,$2,$3,$4,$5,$6)',
         [scriptId,data['pdf'],data['poster'],data['miniPoster'],data['video'],false])
-         res.status(200).json({uploaded:true})
+         res.status(200).json({uploaded:true,scriptId})
     
     }catch(err){
         res.status(400).json({message:err.message})
@@ -703,7 +703,7 @@ app.post('/addMessage',async(req,res)=>{
 //paytm payment
 app.post('/payment',express.json(),(req,res)=>{
 
-    const {amount,email}=req.body
+    const {amount,email,scriptId}=req.body
     console.log(req.body)
     const totalAmount=JSON.stringify(amount)
     /* import checksum generation utility */
@@ -712,7 +712,7 @@ var params = {};
 
 /* initialize an array */
 params["MID"] = process.env.Merchant_ID,
-params["ORDER_ID"] =uuidv4(),
+params["ORDER_ID"] =scriptId,
 params["CHANNEL_ID"]=process.env.Channel_ID,
 params["WEBSITE"]=process.env.Website,
 params["INDUSTRY_TYPE_ID"]=process.env.Industry_Type,
