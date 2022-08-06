@@ -811,7 +811,7 @@ app.post('/payment/callback',(req,res)=>{
                             if(result.STATUS==='TXN_SUCCESS')
                             {
                                 console.log(result)
-                                res.json(result)
+                                res.redirect('http://localhost:3000/')
                                 //store in db
                             //     db.collection('payments').doc('mPDd5z0pNiInbSIIotfj').update({paymentHistory:firebase.firestore.FieldValue.arrayUnion(result)})
                             //     .then(()=>console.log("Update success"))

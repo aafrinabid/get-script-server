@@ -140,6 +140,7 @@ CREATE TABLE messages(
 CREATE TABLE script(
     scriptwriter_id uuid,
     script_id uuid DEFAULT uuid_generate_v4 (),
+    featured BOOLEAN NOT NULL,
     is_deleted BOOLEAN NOT NULL,
     PRIMARY KEY (script_id)
     FOREIGN KEY (scriptwriter_id)
@@ -162,6 +163,54 @@ CREATE TABLE msg(
 
 )
 
+CREATE TABLE payment(
+    script_id uuid,
+    method VARCHAR NOT NULL
+    FOREIGN KEY (script_id)
+    REFERENCES script(script_id)   
+)
+
+
+CREATE TABLE paytm(
+    TXNID VARCHAR NOT NULL,
+    BANKTXNID VARCHAR NOT NULL,
+    ORDERID uuid,
+    TXNAMOUNT VARCHAR NOT NULL,
+    TXNTYPE VARCHAR NOT NULL,
+    GATEWAYNAME VARCHAR NOT NULL,
+    RESPCODE VARCHAR NOT NULL,
+    RESPMSG VARCHAR NOT NULL,
+    BANKNAME VARCHAR NOT NULL,
+    MID VARCHAR NOT NULL,
+    PAYMENTMODE VARCHAR NOT NULL,
+    REFUNDAMT VARCHAR NOT NULL,
+    TXNDATE VARCHAR NOT NULL,
+    PRIMARY KEY (TXNID)
+    FOREIGN KEY (ORDERID)
+   REFERENCES script(script_id)
+
+
+)
+
+
+
+
+
+
+TXNID: '20220806111212800110168630503941675',
+  BANKTXNID: '19839495930',
+  ORDERID: '80cc1818-4012-4aa4-a2fe-0d363c88bb3f',
+  TXNAMOUNT: '500.00',
+  STATUS: 'TXN_SUCCESS',
+  TXNTYPE: 'SALE',
+  GATEWAYNAME: 'SBI',
+  RESPCODE: '01',
+  RESPMSG: 'Txn Success',
+  BANKNAME: 'State Bank of India',
+  MID: 'bjywcZ23080149756724',
+  PAYMENTMODE: 'NB',
+  REFUNDAMT: '0.00',
+  TXNDATE: '2022-08-06 12:26:18.0'
 
 -- CREATE TABLE lastmsg (
 --     message_id uuid DEFAULT uuid_generate_v4 (),
