@@ -173,18 +173,19 @@ CREATE TABLE payment(
 
 CREATE TABLE paytm(
     TXNID VARCHAR NOT NULL,
-    BANKTXNID VARCHAR NOT NULL,
+    BANKTXNID VARCHAR ,
+    STATUS VARCHAR,
     ORDERID uuid,
-    TXNAMOUNT VARCHAR NOT NULL,
-    TXNTYPE VARCHAR NOT NULL,
-    GATEWAYNAME VARCHAR NOT NULL,
-    RESPCODE VARCHAR NOT NULL,
-    RESPMSG VARCHAR NOT NULL,
-    BANKNAME VARCHAR NOT NULL,
-    MID VARCHAR NOT NULL,
-    PAYMENTMODE VARCHAR NOT NULL,
-    REFUNDAMT VARCHAR NOT NULL,
-    TXNDATE VARCHAR NOT NULL,
+    TXNAMOUNT VARCHAR ,
+    TXNTYPE VARCHAR,
+    GATEWAYNAME VARCHAR,
+    RESPCODE VARCHAR,
+    RESPMSG VARCHAR ,
+    BANKNAME VARCHAR,
+    MID VARCHAR,
+    PAYMENTMODE VARCHAR,
+    REFUNDAMT VARCHAR,
+    TXNDATE VARCHAR,
     PRIMARY KEY (TXNID),
     FOREIGN KEY (ORDERID)
    REFERENCES script(script_id)
@@ -192,6 +193,50 @@ CREATE TABLE paytm(
 
 )
 
+CREATE TABLE script_details(
+    script_id uuid,
+    script_title VARCHAR NOT NULL,
+    entertainment VARCHAR NOT NULL,
+    script_type VARCHAR NOT NULL,
+    genres TEXT[] NOT NULL,
+    languages VARCHAR NOT NULL,
+    description VARCHAR NOT NULL,
+    is_deleted BOOLEAN NOT NULL,
+    FOREIGN KEY (script_id)
+    REFERENCES script(script_id)
+
+
+
+);
+
+CREATE TABLE script_pitch_table(
+    script_id uuid,
+    the_origin VARCHAR NOT NULL,
+    human_hook VARCHAR NOT NULL,
+    desires VARCHAR NOT NULL,
+   obstacles VARCHAR NOT NULL,
+    highlights VARCHAR NOT NULL,
+   open_road VARCHAR NOT NULL,
+   is_deleted BOOLEAN NOT NULL,
+   FOREIGN KEY (script_id)
+   REFERENCES script(script_id)
+
+
+
+);
+
+CREATE TABLE script_medias(
+    script_id uuid,
+    script_pdf_url VARCHAR NOT NULL,
+    script_poster VARCHAR NOT NULL,
+    script_mini_poster VARCHAR NOT NULL,
+    script_video VARCHAR,  
+    FOREIGN KEY (script_id)
+    REFERENCES script(script_id)
+ 
+
+
+);
 
 
 
