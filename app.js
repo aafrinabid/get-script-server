@@ -684,7 +684,7 @@ app.get('/fetchscript',async(req,res)=>{
         if(inDetail==='true'){
             console.log('in detail')
             const scriptId=req.headers['scriptid']
-            const scripts=await pool.query('SELECT  script_details.script_id,script.featured,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id WHERE $1= ANY(script_details.genres) AND script_details.script_id != $2 ORDER BY script.featured DESC;',[genre,scriptId])
+            const scripts=await pool.query('SELECT  script_details.script_id,script.featured,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) AND script_details.script_id != $2 ORDER BY script.featured DESC;',[genre,scriptId])
             let newScriptId={}
             let allScripts=[]
             scripts.rows.map(script=>{
