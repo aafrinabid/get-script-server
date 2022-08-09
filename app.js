@@ -14,7 +14,9 @@ const messageModel = require('./model/messageModel');
 const socket=require('socket.io');
 const PaytmChecksum=require('./PaytmChecksum')
 const https=require('https');
-const { request } = require('http');
+app.use(cors())
+
+// const { request } = require('http');
 app.post('/payment',express.json(),(req,res)=>{
 
     const {amount,email,scriptId}=req.body
@@ -124,22 +126,26 @@ app.post('/payment/callback',(req,res)=>{
                              let result=JSON.parse(response)
                             if(result.STATUS==='TXN_SUCCESS')
                             {
-                                const update=await pool.query('UPDATE TABLE script set featured=$1',[true])
+                                const update=await pool.query('UPDATE script set featured=$1 where script_id=$2',[true,result['ORDERID']])
                                 const method=await pool.query('INSERT INTO payment(script_id,method) values($1,$2)',[result['ORDERID'],'paytm'])
 
 
                                 console.log(result)
-                                const transfer=Object.keys(result)
-                                let count=0
-                                transfer.forEach(async(list)=>{
-                                    if(count===0){
-                                        const insert=await pool.query('INSERT INTO paytm($1) values($2)',[list[count].toLocaleLowerCase(),result[transfer[count]]])
-                                        count++
-                                    }else{
-                                     const insert=await pool.query('UPDATE paytm set $1=$2',[list[count].toLocaleLowerCase(),result[transfer[count]]])
-                                     count++
-                                    }
-                                })
+                                const inster=await pool.query('INSERT INTO paytm(txnid,banktxnid,orderid,txnamount,status,txntype,gatewayname,respcode,respmsg,bankname,mid,paymentmode,refundamt,txndate) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',[result['TXNID'],result['BANKTXNID'],result['ORDERID'],result['txnamount'],result['STATUS'],['TXNTYPE'],result['GATEWAYNAME'],result['RESPCODE'],result['RESPMSG'],result['BANKNAME'],result['MID'],result['PAYMENTMODE'],result['REFUNDAMT'],result['TXNDATE']])
+
+                                // const transfer=Object.keys(result)
+                                // let count=0
+                                // transfer.forEach(async(list)=>{
+                                //     console.log(list)
+                                //     if(count===0){
+                                //         console.log(list[count],result[transfer[count]],'insterting')
+                                //         const insert=await pool.query('INSERT INTO paytm($1) values($2)',[list[count].toLocaleLowerCase(),result[transfer[count]]])
+                                //         count++
+                                //     }else{
+                                //      const insert=await pool.query('UPDATE paytm set $1=$2 where ',[list[count].toLocaleLowerCase(),result[transfer[count]]])
+                                //      count++
+                                //     }
+                                // })
                                 
 
                                 // const insert=await res
@@ -190,7 +196,11 @@ app.post('/payment/callback',(req,res)=>{
 
 app.use(express.json())
 app.use(express.urlencoded({extended:true}))
-app.use(cors())
+// const corsOptions ={
+//     origin:'*', 
+//     credentials:true,            //access-control-allow-credentials:true
+//     optionSuccessStatus:200,
+//  }
 mongoose.connect(process.env.MONGO_URL,{
     useNewUrlParser:true,
     useUnifiedTopology:true,
@@ -616,6 +626,7 @@ if(name==='script'){
 
 app.post('/scriptupload',verifyJwt,async(req,res)=>{
     try{
+        console.log(res.body)
         console.log('enterd',req.userId)
         const id=req.userId
         const data=req.body
@@ -638,7 +649,7 @@ app.post('/scriptupload',verifyJwt,async(req,res)=>{
         await pool.query('INSERT INTO script_medias(script_id,script_pdf_url,script_poster,script_mini_poster,script_video,is_deleted) VALUES($1,$2,$3,$4,$5,$6)',
         [scriptId,data['pdf'],data['poster'],data['miniPoster'],data['video'],false])
          res.status(200).json({uploaded:true,scriptId})
-    
+    console.log('updated the script upload')
     }catch(err){
         console.log(err)
         res.status(400).json({message:err.message})
@@ -658,14 +669,39 @@ app.get('/fetchscript',async(req,res)=>{
             console.log('in detail')
             const scriptId=req.headers['scriptid']
             const scripts=await pool.query('SELECT  script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id WHERE $1= ANY(script_details.genres) AND script_details.script_id != $2;',[genre,scriptId])
-            const result=scripts.rows
+            let newScriptId={}
+            let allScripts=[]
+            scripts.rows.map(script=>{
+                if(newScriptId[script.script_id]){
+                    return
+    
+                }else{
+                    newScriptId[script.script_id]=true
+                    allScripts.push(script)
+                }
+            })
+            // const result=scripts.rows
+    const result=allScripts
+            // const result=scripts.rows
             // console.log(result)
            return res.status(200).json({result,genre})
         }
 
-        const scripts=await pool.query('SELECT  script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id WHERE $1= ANY(script_details.genres);',[genre])
-        const result=scripts.rows
-        // console.log(result)
+        const scripts=await pool.query('SELECT  script.script_id,script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres);',[genre])
+        let scriptId={}
+        let allScripts=[]
+        scripts.rows.map(script=>{
+            if(scriptId[script.script_id]){
+                return
+
+            }else{
+                scriptId[script.script_id]=true
+                allScripts.push(script)
+            }
+        })
+        // const result=scripts.rows
+const result=allScripts
+        console.log(genre,result,'rooooooooooows')
         res.status(200).json({result,genre})
 
     }catch(e){
@@ -712,7 +748,7 @@ app.get('/bannerscript',async(req,res)=>{
    
 })
 // profile
-app.get('/getemail',async(req,res)=>{
+app.post('/getemail',async(req,res)=>{
     const {scriptId}=req.body
     const email=await pool.query('select users.email from script join users on script.scriptwriter_id=users.id where script.script_id=$1',[scriptId])
     res.json(email.rows[0].email)
