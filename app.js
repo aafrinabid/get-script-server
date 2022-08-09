@@ -16,7 +16,43 @@ const PaytmChecksum=require('./PaytmChecksum')
 const https=require('https');
 app.use(cors())
 
+const verifyJwt=(req,res,next)=>{
+    const token=req.headers["x-access-token"];
+
+    if(!token){
+        res.send('no token is there')
+    }else{
+        jwt.verify(token,"jwtsecret",(err,decoded)=>{
+            if(err){
+                return res.json({auth:false,message:'authorization failed'})
+            }else{
+                console.log('success verification');
+                req.userId=decoded.id;
+                req.role=decoded.role
+               
+               //  console.log(req.userId)
+                next();
+            }
+        })
+    }
+
+}
+
 // const { request } = require('http');
+app.get('/isAuthPayment',verifyJwt,async(req,res)=>{
+    const userId=req.userId
+    console.log(req.headers)
+    const scriptId=req.headers["scriptid"];
+    console.log(userId,scriptId,'checking the body')
+    const script =await pool.query('select * from script where script_id=$1 and scriptwriter_id=$2',[scriptId,userId])
+    console.log(script,'checking the scriptssss')
+    if(script.rowCount>0){
+        res.json({pAuth:true,auth:true})
+    }else{
+        res.json({pAuth:false,auth:true})
+    }
+
+})
 app.post('/payment',express.json(),(req,res)=>{
 
     const {amount,email,scriptId}=req.body
@@ -232,27 +268,7 @@ const upload=multer({
 // const compPassword=async(p)=>{
 //     const p
 // }
-const verifyJwt=(req,res,next)=>{
-    const token=req.headers["x-access-token"];
 
-    if(!token){
-        res.send('no token is there')
-    }else{
-        jwt.verify(token,"jwtsecret",(err,decoded)=>{
-            if(err){
-                return res.json({auth:false,message:'authorization failed'})
-            }else{
-                console.log('success verification');
-                req.userId=decoded.id;
-                req.role=decoded.role
-               
-               //  console.log(req.userId)
-                next();
-            }
-        })
-    }
-
-}
 
 app.get('/getId',verifyJwt,(req,res)=>{
 const userId= req.userId
@@ -301,7 +317,7 @@ app.get('/isAuth',verifyJwt,async(req,res,next)=>{
     console.log('sfjkskf')
 
 
-           const result=await pool.query('SELECT * FROM users WHERE admin_id=$1',[id])
+           const result=await pool.query('SELECT * FROM users WHERE id=$1',[id])
            console.log(result.rows)
            status='approved'
            console.log(status,'coool')
