@@ -1,7 +1,9 @@
 require('dotenv').config()
+const formidable=require('formidable')
 const express=require('express');
 const AWS= require('aws-sdk');
 const app=express()
+const {v4:uuidv4}=require('uuid')
 const pool=require('./db');
 const bcrypt=require('bcrypt');
 const cors=require('cors');
@@ -10,13 +12,231 @@ const multer=require('multer');
 const mongoose=require('mongoose');
 const messageModel = require('./model/messageModel');
 const socket=require('socket.io');
-const e = require('express');
+const PaytmChecksum=require('./PaytmChecksum')
+const https=require('https');
+app.use(cors())
+
+const verifyJwt=(req,res,next)=>{
+    const token=req.headers["x-access-token"];
+
+    if(!token){
+        res.send('no token is there')
+    }else{
+        jwt.verify(token,"jwtsecret",(err,decoded)=>{
+            if(err){
+                return res.json({auth:false,message:'authorization failed'})
+            }else{
+                console.log('success verification');
+                req.userId=decoded.id;
+                req.role=decoded.role
+               
+               //  console.log(req.userId)
+                next();
+            }
+        })
+    }
+
+}
+
+// const { request } = require('http');
+app.get('/isAuthPayment',verifyJwt,async(req,res)=>{
+    const userId=req.userId
+    console.log(req.headers)
+    const scriptId=req.headers["scriptid"];
+    console.log(userId,scriptId,'checking the body')
+    const script =await pool.query('select * from script where script_id=$1 and scriptwriter_id=$2',[scriptId,userId])
+    console.log(script,'checking the scriptssss')
+    if(script.rowCount>0){
+        res.json({pAuth:true,auth:true})
+    }else{
+        res.json({pAuth:false,auth:true})
+    }
+
+})
+app.post('/payment',express.json(),(req,res)=>{
+
+    const {amount,email,scriptId}=req.body
+    console.log(req.body)
+    const totalAmount=JSON.stringify(amount)
+    /* import checksum generation utility */
+
+var params = {};
+
+/* initialize an array */
+params["MID"] = process.env.Merchant_ID,
+params["ORDER_ID"] =scriptId,
+params["CHANNEL_ID"]=process.env.Channel_ID,
+params["WEBSITE"]=process.env.Website,
+params["INDUSTRY_TYPE_ID"]=process.env.Industry_Type,
+params["CUST_ID"]=process.env.Cust_Id,
+params["TXN_AMOUNT"]=totalAmount,
+params["CALLBACK_URL"]='http://localhost:3500/payment/callback',
+params['MOBILE_NO']='807551056',
+params["EMAIL"]=email
+console.log(params)
+
+
+/**
+* Generate checksum by parameters we have
+* Find your Merchant Key in your Paytm Dashboard at https://dashboard.paytm.com/next/apikeys 
+*/
+var paytmChecksum = PaytmChecksum.generateSignature(params,process.env.Merchant_Key);
+paytmChecksum.then(function(checksum){
+    let paytmParams={
+        ...params,
+        "CHECKSUMHASH":checksum
+    }
+    res.json(paytmParams)
+}).catch(function(error){
+	console.log(error);
+});
+})
+
+app.post('/payment/callback',(req,res)=>{
+
+    const form=new formidable.IncomingForm();
+    
+    form.parse(req,(err,fields,file)=>
+    {
+        
+    
+    
+    
+    
+    
+    
+    
+    
+    paytmChecksum =fields.CHECKSUMHASH;
+    delete fields.CHECKSUMHASH;
+    
+    var isVerifySignature = PaytmChecksum.verifySignature(fields, process.env.Merchant_Key, paytmChecksum);
+    if (isVerifySignature) {
+        console.log(fields)
+    
+    
+    
+    
+    
+    
+    
+    
+        var paytmParams = {};
+        paytmParams["MID"]     = fields.MID;
+        paytmParams["ORDER_ID"] = fields.ORDERID;
+        
+        /*
+        * Generate checksum by parameters we have
+        * Find your Merchant Key in your Paytm Dashboard at https://dashboard.paytm.com/next/apikeys 
+        */
+        PaytmChecksum.generateSignature(paytmParams, process.env.Merchant_Key).then(function(checksum){
+        
+            paytmParams["CHECKSUMHASH"] = checksum;
+        
+            var post_data = JSON.stringify(paytmParams);
+        
+            var options = {
+        
+                /* for Staging */
+                hostname: 'securegw-stage.paytm.in',
+        
+                /* for Production */
+                // hostname: 'securegw.paytm.in',
+        
+                port: 443,
+                path: '/order/status',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Content-Length': post_data.length
+                }
+            };
+        
+            var response = "";
+            var post_req = https.request(options, function(post_res) {
+                post_res.on('data', function (chunk) {
+                    response += chunk;
+                });
+        
+                post_res.on('end', async function(){
+                             let result=JSON.parse(response)
+                            if(result.STATUS==='TXN_SUCCESS')
+                            {
+                                const update=await pool.query('UPDATE script set featured=$1 where script_id=$2',[true,result['ORDERID']])
+                                const method=await pool.query('INSERT INTO payment(script_id,method) values($1,$2)',[result['ORDERID'],'paytm'])
+
+
+                                console.log(result)
+                                const inster=await pool.query('INSERT INTO paytm(txnid,banktxnid,orderid,txnamount,status,txntype,gatewayname,respcode,respmsg,bankname,mid,paymentmode,refundamt,txndate) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',[result['TXNID'],result['BANKTXNID'],result['ORDERID'],result['txnamount'],result['STATUS'],['TXNTYPE'],result['GATEWAYNAME'],result['RESPCODE'],result['RESPMSG'],result['BANKNAME'],result['MID'],result['PAYMENTMODE'],result['REFUNDAMT'],result['TXNDATE']])
+
+                                // const transfer=Object.keys(result)
+                                // let count=0
+                                // transfer.forEach(async(list)=>{
+                                //     console.log(list)
+                                //     if(count===0){
+                                //         console.log(list[count],result[transfer[count]],'insterting')
+                                //         const insert=await pool.query('INSERT INTO paytm($1) values($2)',[list[count].toLocaleLowerCase(),result[transfer[count]]])
+                                //         count++
+                                //     }else{
+                                //      const insert=await pool.query('UPDATE paytm set $1=$2 where ',[list[count].toLocaleLowerCase(),result[transfer[count]]])
+                                //      count++
+                                //     }
+                                // })
+                                
+
+                                // const insert=await res
+
+
+                                res.redirect('http://localhost:3000/')
+                                //store in db
+                            //     db.collection('payments').doc('mPDd5z0pNiInbSIIotfj').update({paymentHistory:firebase.firestore.FieldValue.arrayUnion(result)})
+                            //     .then(()=>console.log("Update success"))
+                            //     .catch(()=>console.log("Unable to update"))
+                            // }
+    
+                            // res.redirect(`http://localhost:3000/status/${result.ORDERID}`)
+    
+                            }
+                });
+            });
+        
+            post_req.write(post_data);
+            post_req.end();
+        });        
+        form.on('error', function(err) { console.log(err); });
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    } else {
+        console.log("Checksum Mismatched");
+    }
+    
+    
+    
+    
+    
+    
+    })
+    
+    })
+
+
 
 
 
 app.use(express.json())
 app.use(express.urlencoded({extended:true}))
-app.use(cors())
+// const corsOptions ={
+//     origin:'*', 
+//     credentials:true,            //access-control-allow-credentials:true
+//     optionSuccessStatus:200,
+//  }
 mongoose.connect(process.env.MONGO_URL,{
     useNewUrlParser:true,
     useUnifiedTopology:true,
@@ -48,27 +268,7 @@ const upload=multer({
 // const compPassword=async(p)=>{
 //     const p
 // }
-const verifyJwt=(req,res,next)=>{
-    const token=req.headers["x-access-token"];
 
-    if(!token){
-        res.send('no token is there')
-    }else{
-        jwt.verify(token,"jwtsecret",(err,decoded)=>{
-            if(err){
-                return res.json({auth:false,message:'authorization failed'})
-            }else{
-                console.log('success verification');
-                req.userId=decoded.id;
-                req.role=decoded.role
-               
-               //  console.log(req.userId)
-                next();
-            }
-        })
-    }
-
-}
 
 app.get('/getId',verifyJwt,(req,res)=>{
 const userId= req.userId
@@ -117,7 +317,7 @@ app.get('/isAuth',verifyJwt,async(req,res,next)=>{
     console.log('sfjkskf')
 
 
-           const result=await pool.query('SELECT * FROM users WHERE admin_id=$1',[id])
+           const result=await pool.query('SELECT * FROM users WHERE id=$1',[id])
            console.log(result.rows)
            status='approved'
            console.log(status,'coool')
@@ -442,6 +642,7 @@ if(name==='script'){
 
 app.post('/scriptupload',verifyJwt,async(req,res)=>{
     try{
+        console.log(res.body)
         console.log('enterd',req.userId)
         const id=req.userId
         const data=req.body
@@ -449,23 +650,24 @@ app.post('/scriptupload',verifyJwt,async(req,res)=>{
         const entertainmentType=typeHandler(data.entertainmentType,'entertainment')
         const scriptType=typeHandler(data.scriptType,'script')
         console.log(entertainmentType,scriptType)
-        const script=await pool.query('INSERT INTO script(scriptwriter_id,is_deleted) VALUES($1,$2) RETURNING script_id',
-        [id,false])
+        const script=await pool.query('INSERT INTO script(scriptwriter_id,featured,is_deleted) VALUES($1,$2,$3) RETURNING script_id',
+        [id,false,false])
         console.log(script)
        
         const  scriptId=script.rows[0]['script_id']
-       const scriptDetail= await pool.query('INSERT INTO script_detail(script_id,script_title,entertainment,script_type,languages,description,genres,is_deleted) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+       const scriptDetail= await pool.query('INSERT INTO script_details(script_id,script_title,entertainment,script_type,languages,description,genres,is_deleted) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
         [scriptId,data.titleName,entertainmentType,scriptType,'English',data.description,data.genres,false]);
     
     
-       const pitchTable=await pool.query('INSERT INTO script_pitch(script_id,the_origin,human_hook,character,desires,obstacles,highlights,open_road,is_deleted) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+       const pitchTable=await pool.query('INSERT INTO script_pitch_table(script_id,the_origin,human_hook,character,desires,obstacles,highlights,open_road,is_deleted) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',
         [scriptId,data['table']['theOrigin'],data['table']['humanHook'],data['table']['character'],data['table']['Desires'],data['table']['obstacles'],data['table']['highlights'],data['table']['openRoad'],false] )
     
-        await pool.query('INSERT INTO script_media(script_id,script_pdf_url,script_poster,script_mini_poster,script_video,is_deleted) VALUES($1,$2,$3,$4,$5,$6)',
+        await pool.query('INSERT INTO script_medias(script_id,script_pdf_url,script_poster,script_mini_poster,script_video,is_deleted) VALUES($1,$2,$3,$4,$5,$6)',
         [scriptId,data['pdf'],data['poster'],data['miniPoster'],data['video'],false])
-         res.status(200).json({uploaded:true})
-    
+         res.status(200).json({uploaded:true,scriptId})
+    console.log('updated the script upload')
     }catch(err){
+        console.log(err)
         res.status(400).json({message:err.message})
     }
         
@@ -482,15 +684,40 @@ app.get('/fetchscript',async(req,res)=>{
         if(inDetail==='true'){
             console.log('in detail')
             const scriptId=req.headers['scriptid']
-            const scripts=await pool.query('SELECT  script_detail.script_id,script_detail.script_title,script_detail.genres,script_media.script_poster FROM script_detail JOIN script_media ON script_detail.script_id = script_media.script_id WHERE $1= ANY(script_detail.genres) AND script_detail.script_id != $2;',[genre,scriptId])
-            const result=scripts.rows
+            const scripts=await pool.query('SELECT  script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id WHERE $1= ANY(script_details.genres) AND script_details.script_id != $2;',[genre,scriptId])
+            let newScriptId={}
+            let allScripts=[]
+            scripts.rows.map(script=>{
+                if(newScriptId[script.script_id]){
+                    return
+    
+                }else{
+                    newScriptId[script.script_id]=true
+                    allScripts.push(script)
+                }
+            })
+            // const result=scripts.rows
+    const result=allScripts
+            // const result=scripts.rows
             // console.log(result)
            return res.status(200).json({result,genre})
         }
 
-        const scripts=await pool.query('SELECT  script_detail.script_id,script_detail.script_title,script_detail.genres,script_media.script_poster FROM script_detail JOIN script_media ON script_detail.script_id = script_media.script_id WHERE $1= ANY(script_detail.genres);',[genre])
-        const result=scripts.rows
-        // console.log(result)
+        const scripts=await pool.query('SELECT  script.script_id,script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres);',[genre])
+        let scriptId={}
+        let allScripts=[]
+        scripts.rows.map(script=>{
+            if(scriptId[script.script_id]){
+                return
+
+            }else{
+                scriptId[script.script_id]=true
+                allScripts.push(script)
+            }
+        })
+        // const result=scripts.rows
+const result=allScripts
+        console.log(genre,result,'rooooooooooows')
         res.status(200).json({result,genre})
 
     }catch(e){
@@ -507,9 +734,9 @@ app.get('/scriptdetails',async(req,res)=>{
     try{
         const scriptId=req.headers['scriptid']
         // console.log(scriptId,'*****^^^^^^*****')
-        // const scriptDetail= await pool.query(' select scriptwriter.username,script_detail.*,script_media.*,script_pitch.* from scripts join scriptwriter on scripts.scriptwriter_id = scriptwriter.scriptwriter_id join script_detail on scripts.script_id= $1 join script_media on scripts.script_id = $2 join script_pitch on scripts.script_id=$3',
+        // const scriptDetail= await pool.query(' select scriptwriter.username,script_details.*,script_medias.*,script_pitch_table.* from scripts join scriptwriter on scripts.scriptwriter_id = scriptwriter.scriptwriter_id join script_details on scripts.script_id= $1 join script_medias on scripts.script_id = $2 join script_pitch_table on scripts.script_id=$3',
         // [scriptId,scriptId,scriptId])
-          const scriptDetail= await pool.query('select users.username,users.id,script_detail.*,script_media.*,script_pitch.* from script join users on script.scriptwriter_id = users.id join script_detail on script.script_id= script_detail.script_id join script_media on script.script_id = script_media.script_id join script_pitch on script.script_id=script_pitch.script_id WHERE script.script_id=$1',
+          const scriptDetail= await pool.query('select users.username,users.id,script_details.*,script_medias.*,script_pitch_table.* from script join users on script.scriptwriter_id = users.id join script_details on script.script_id= script_details.script_id join script_medias on script.script_id = script_medias.script_id join script_pitch_table on script.script_id=script_pitch_table.script_id WHERE script.script_id=$1',
         [scriptId])
         console.log('nodejsssssssssss',scriptDetail.rows[0])
         const result=scriptDetail.rows[0]
@@ -522,9 +749,11 @@ app.get('/scriptdetails',async(req,res)=>{
     
 })
 
+
+
 app.get('/bannerscript',async(req,res)=>{
     try{
-        const scripts=await pool.query('SELECT  script_detail.script_id,script_detail.script_title,script_detail.description,script_media.script_pdf_url,script_media.script_poster FROM script_detail JOIN script_media ON script_detail.script_id = script_media.script_id')
+        const scripts=await pool.query('SELECT  script_details.script_id,script_details.script_title,script_details.description,script_medias.script_pdf_url,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id')
         // console.log(scripts.rowCount)
         const index=Math.floor(Math.random()*scripts.rowCount)
         const result=scripts.rows[index]
@@ -535,6 +764,11 @@ app.get('/bannerscript',async(req,res)=>{
    
 })
 // profile
+app.post('/getemail',async(req,res)=>{
+    const {scriptId}=req.body
+    const email=await pool.query('select users.email from script join users on script.scriptwriter_id=users.id where script.script_id=$1',[scriptId])
+    res.json(email.rows[0].email)
+})
 
 app.post('/getProfileInfo',async(req,res)=>{
 try{
@@ -695,6 +929,7 @@ app.post('/addMessage',async(req,res)=>{
             console.log(e)
         }
     })
+//paytm payment
 
 
 app.listen(3500,()=>{
