@@ -241,14 +241,17 @@ app.post('/paymentstripe',express.json(),express.urlencoded({extended:true}),asy
     
         })
         const paymentIntent= await stripe.paymentIntents.create({
-                amount:product.price * 100,
+                amount:product.price,
                 currency:'inr',
                 customer:customers.id,
                 receipt_email:token.email,
                 // orderId:product.id,
             },{idempotencyKey})
-            console.log(paymentIntent)
-            res.redirect('http://localhost:3000/')
+            console.log(paymentIntent.client_secret)
+            const secretKey=paymentIntent.client_secret
+            res.json({clientSecret:secretKey})
+            // res.status(200).json(paymentIntent)
+            // res.redirect('http://localhost:3000/')
     
     }catch(e){
         console.log(e)
@@ -273,6 +276,18 @@ app.post('/paymentstripe',express.json(),express.urlencoded({extended:true}),asy
 
 
 
+app.post('/testStripe',async(req,res)=>{
+    try{
+        const paymentIntent= await stripe.paymentIntents.create({
+            amount:500,
+            currency:'inr',
+            // orderId:product.id,
+        })
+        res.json({clientSecret:paymentIntent})
+    }catch(e){
+
+    }
+})
 app.use(express.json())
 app.use(express.urlencoded({extended:true}))
 // const corsOptions ={
