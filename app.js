@@ -14,6 +14,7 @@ const messageModel = require('./model/messageModel');
 const socket=require('socket.io');
 const PaytmChecksum=require('./PaytmChecksum')
 const https=require('https');
+const stripe= require('stripe')(process.env.stripe_secret_key)
 app.use(cors())
 
 const verifyJwt=(req,res,next)=>{
@@ -39,6 +40,7 @@ const verifyJwt=(req,res,next)=>{
 }
 
 // const { request } = require('http');
+//paytm payment
 app.get('/isAuthPayment',verifyJwt,async(req,res)=>{
     const userId=req.userId
     console.log(req.headers)
@@ -226,7 +228,48 @@ app.post('/payment/callback',(req,res)=>{
     
     })
 
-
+// stripe payment
+app.post('/paymentstripe',express.json(),express.urlencoded({extended:true}),async(req,res)=>{
+    try{
+        const {product,token}=req.body;
+        console.log('token',token,'product',product)
+        const idempotencyKey=uuidv4()
+        console.log(idempotencyKey)
+     const customers=await stripe.customers.create({
+            email:token.email,
+            source:token.id
+    
+        })
+        const paymentIntent= await stripe.paymentIntents.create({
+                amount:product.price * 100,
+                currency:'inr',
+                customer:customers.id,
+                receipt_email:token.email,
+                // orderId:product.id,
+            },{idempotencyKey})
+            console.log(paymentIntent)
+            res.redirect('http://localhost:3000/')
+    
+    }catch(e){
+        console.log(e)
+    }
+    
+    
+//     .then(customer=>{
+//         stripe.paymentIntents.create({
+//             amount:product.price * 100,
+//             currency:'inr',
+//             customer:customer.id,
+//             receipt_email:token.email,
+//             // orderId:product.id,
+//         },{idempotencyKey})
+//     })
+//     .then(result=>{
+//         console.log(result,'resukts comming')
+//         res.status(200).json(result)
+//     })
+//     .catch(err=>console.log(err))
+})
 
 
 
