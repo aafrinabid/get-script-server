@@ -1,5 +1,6 @@
 require('dotenv').config()
 const formidable=require('formidable')
+const bodyParser=require('body-parser')
 const express=require('express');
 const AWS= require('aws-sdk');
 const app=express()
@@ -288,6 +289,34 @@ app.post('/testStripe',async(req,res)=>{
 
     }
 })
+
+app.post('/webhook',
+bodyParser.raw({type:'application/json'}),
+async(req,res)=>{
+    const payload=req.body;
+    const sig=req.headers['stripe-signature'];
+    const endpointSecret='whsec_a1b22dad73cedba7b9b83e87f12b3c3a7455e6ce97e1394e8260bf23eb85565a'
+
+    let event
+    try{
+        event=stripe.webhooks.constructEvent(payload,sig,endpointSecret)
+    }catch(error){
+        console.log(error)
+    res.json({success:false})
+
+    }
+    console.log(event.type,'type')
+    if(event.type==='payment_intent.succeeded'){
+        console.log('hurrrrrrraghhhhhhhh')
+    }
+    console.log(event.data.object,'whats this')
+    // console.log(event.data.object.id)
+
+    res.json({success:true})
+
+}
+)
+
 app.use(express.json())
 app.use(express.urlencoded({extended:true}))
 // const corsOptions ={
