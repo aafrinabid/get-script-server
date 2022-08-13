@@ -230,6 +230,29 @@ app.post('/payment/callback',(req,res)=>{
     })
 
 // stripe payment
+const generate_payment_response = (intent) => {
+    if (
+      intent.status === 'requires_action' &&
+      intent.next_action.type === 'use_stripe_sdk'
+    ) {
+      // Tell the client to handle the action
+      return {
+        requires_action: true,
+        payment_intent_client_secret: intent.client_secret
+      };
+    } else if (intent.status === 'succeeded') {
+      // The payment didn’t need any additional actions and completed!
+      // Handle post-payment fulfillment
+      return {
+        success: true
+      };
+    } else {
+      // Invalid status
+      return {
+        error: 'Invalid PaymentIntent status'
+      }
+    }
+  };
 app.post('/paymentstripe',express.json(),express.urlencoded({extended:true}),async(req,res)=>{
     try{
         const {product,token}=req.body;
@@ -241,16 +264,28 @@ app.post('/paymentstripe',express.json(),express.urlencoded({extended:true}),asy
             source:token.id
     
         })
+
+        const paymentMethods = await stripe.paymentMethods.list({
+            customer: customers.id,
+            type: 'card',
+          });
+          console.log(paymentMethods.data[0].id,'wheres it ******************************')
         const paymentIntent= await stripe.paymentIntents.create({
-                amount:product.price,
+                amount:product.price*100,
                 currency:'inr',
                 customer:customers.id,
                 receipt_email:token.email,
+                payment_method:paymentMethods.data[0].id,
+                confirm:true
                 // orderId:product.id,
             },{idempotencyKey})
             console.log(paymentIntent.client_secret)
-            const secretKey=paymentIntent.client_secret
-            res.json({clientSecret:secretKey})
+            
+            // const secretKey=paymentIntent.client_secret
+            const data=generate_payment_response(paymentIntent)
+
+            res.json(data)
+            // res.json({clientSecret:secretKey})
             // res.status(200).json(paymentIntent)
             // res.redirect('http://localhost:3000/')
     
