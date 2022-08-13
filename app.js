@@ -361,9 +361,9 @@ async(req,res)=>{
         if(event.type==='charge.succeeded'){
             const data=event.data.object
             // console.log(data)
-            const orderId=data.payment_intent
+            const orderId=data.metadata.orderId
             console.log(event.data.object.payment_intent,'testing')
-            const stripeUpdate=await pool.query('INSERT INTO stripe_charges (payment_intent,charge_id,paid,txnid,receipt_url) VALUES ($1,$2,$3,$4,$5)',
+            const stripeUpdate=await pool.query('INSERT INTO stripe_charges (orderid,charge_id,paid,txnid,receipt_url) VALUES ($1,$2,$3,$4,$5)',
             [orderId,data.id,data.paid,data.balance_transaction,data.receipt_url])
             
             console.log(stripeUpdate)

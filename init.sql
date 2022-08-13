@@ -258,14 +258,14 @@ CREATE TABLE stripe(
 
 
 CREATE TABLE stripe_charges(
-    payment_intent VARCHAR,
+    orderid uuid,
     charge_id VARCHAR,
     paid BOOLEAN,
     txnid VARCHAR,
     receipt_url VARCHAR,
     PRIMARY KEY (charge_id),
-    FOREIGN KEY (payment_intent)
-    REFERENCES stripe(payment_intent_id)
+    FOREIGN KEY (orderid)
+    REFERENCES script(script_id)
 
 
 
