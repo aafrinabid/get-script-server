@@ -239,6 +239,39 @@ CREATE TABLE script_medias(
 );
 
 
+CREATE TABLE stripe(
+    payment_intent_id VARCHAR,
+    amount VARCHAR,
+    currency VARCHAR,
+    customer_id VARCHAR,
+    status VARCHAR,
+    orderid uuid,
+    payment_method VARCHAR,
+    email VARCHAR,
+    client_secret_key VARCHAR,
+    PRIMARY KEY (payment_intent_id),
+    FOREIGN KEY (orderid)
+   REFERENCES script(script_id)
+
+
+)
+
+
+CREATE TABLE stripe_charges(
+    payment_intent VARCHAR,
+    charge_id VARCHAR,
+    paid BOOLEAN,
+    txnid VARCHAR,
+    receipt_url VARCHAR,
+    PRIMARY KEY (charge_id),
+    FOREIGN KEY (payment_intent)
+    REFERENCES stripe(payment_intent_id)
+
+
+
+);
+
+
 
 
 
