@@ -1,5 +1,6 @@
 require('dotenv').config()
 const formidable=require('formidable')
+const bodyParser=require('body-parser')
 const express=require('express');
 const AWS= require('aws-sdk');
 const app=express()
@@ -14,6 +15,8 @@ const messageModel = require('./model/messageModel');
 const socket=require('socket.io');
 const PaytmChecksum=require('./PaytmChecksum')
 const https=require('https');
+const { json } = require('express');
+const stripe= require('stripe')(process.env.stripe_secret_key)
 app.use(cors())
 
 const verifyJwt=(req,res,next)=>{
@@ -39,6 +42,7 @@ const verifyJwt=(req,res,next)=>{
 }
 
 // const { request } = require('http');
+//paytm payment
 app.get('/isAuthPayment',verifyJwt,async(req,res)=>{
     const userId=req.userId
     console.log(req.headers)
@@ -226,9 +230,160 @@ app.post('/payment/callback',(req,res)=>{
     
     })
 
+// stripe payment
+const generate_payment_response = (intent) => {
+    if (
+      intent.status === 'requires_action' &&
+      intent.next_action.type === 'use_stripe_sdk'
+    ) {
+      // Tell the client to handle the action
+      return {
+        requires_action: true,
+        payment_intent_client_secret: intent.client_secret
+      };
+    } else if (intent.status === 'succeeded') {
+      // The payment didn’t need any additional actions and completed!
+      // Handle post-payment fulfillment
+      return {
+        success: true
+      };
+    } else {
+      // Invalid status
+      return {
+        error: 'Invalid PaymentIntent status'
+      }
+    }
+  };
+app.post('/paymentstripe',express.json(),express.urlencoded({extended:true}),async(req,res)=>{
+    try{
+        const {product,token}=req.body;
+        console.log('token',token,'product',product)
+        const idempotencyKey=uuidv4()
+        console.log(idempotencyKey)
+     const customers=await stripe.customers.create({
+            email:token.email,
+            source:token.id
+    
+        })
+
+        const paymentMethods = await stripe.paymentMethods.list({
+            customer: customers.id,
+            type: 'card',
+          });
+          console.log(paymentMethods.data[0].id,'wheres it ******************************')
+        const paymentIntent= await stripe.paymentIntents.create({
+                amount:product.price*100,
+                currency:'inr',
+                customer:customers.id,
+                receipt_email:token.email,
+                payment_method:paymentMethods.data[0].id,
+                confirm:true,
+                metadata:{
+                    orderId:product.id
+                }
+
+                // orderId:product.id,
+            },{idempotencyKey})
+            console.log(paymentIntent.client_secret)
+            
+            // const secretKey=paymentIntent.client_secret
+            const data=generate_payment_response(paymentIntent)
+
+            res.json(data)
+            // res.json({clientSecret:secretKey})
+            // res.status(200).json(paymentIntent)
+            // res.redirect('http://localhost:3000/')
+    
+    }catch(e){
+        console.log(e)
+    }
+    
+    
+//     .then(customer=>{
+//         stripe.paymentIntents.create({
+//             amount:product.price * 100,
+//             currency:'inr',
+//             customer:customer.id,
+//             receipt_email:token.email,
+//             // orderId:product.id,
+//         },{idempotencyKey})
+//     })
+//     .then(result=>{
+//         console.log(result,'resukts comming')
+//         res.status(200).json(result)
+//     })
+//     .catch(err=>console.log(err))
+})
 
 
 
+app.post('/testStripe',async(req,res)=>{
+    try{
+        const paymentIntent= await stripe.paymentIntents.create({
+            amount:500,
+            currency:'inr',
+            // orderId:product.id,
+        })
+        res.json({clientSecret:paymentIntent})
+    }catch(e){
+
+    }
+})
+
+app.post('/webhook',
+bodyParser.raw({type:'application/json'}),
+async(req,res)=>{
+    try{
+        const payload=req.body;
+        const sig=req.headers['stripe-signature'];
+        const endpointSecret='whsec_a1b22dad73cedba7b9b83e87f12b3c3a7455e6ce97e1394e8260bf23eb85565a'
+    
+        let event
+        try{
+            event=stripe.webhooks.constructEvent(payload,sig,endpointSecret)
+        }catch(error){
+            console.log(error)
+        res.json({success:false})
+    
+        }
+        console.log(event.type,'type')
+        if(event.type==='payment_intent.succeeded'){
+            console.log(event.data.object.id,'hmmmmmmmmmmmmmmmmmmmmmm')
+            const data=event.data.object
+            const orderId=data.metadata.orderId
+            const update=await pool.query('UPDATE script set featured=$1 where script_id=$2',[true,orderId])
+            const method=await pool.query('INSERT INTO payment(script_id,method) values($1,$2)',[orderId,'stripe'])
+            const stripeInsert=await pool.query('INSERT INTO stripe (orderid,payment_intent_id,client_secret_key,email,customer_id,currency,amount,status,payment_method) values($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+            [orderId,data.id,data.client_secret,data.receipt_email,data.customer,data.currency,data.amount/100,data.status,data.payment_method]
+            )
+    
+        }
+        if(event.type==='charge.succeeded'){
+            const data=event.data.object
+            // console.log(data)
+            const orderId=data.metadata.orderId
+            console.log(event.data.object.payment_intent,'testing')
+            const stripeUpdate=await pool.query('INSERT INTO stripe_charges (orderid,charge_id,paid,txnid,receipt_url) VALUES ($1,$2,$3,$4,$5)',
+            [orderId,data.id,data.paid,data.balance_transaction,data.receipt_url])
+            
+            console.log(stripeUpdate)
+            
+            
+            
+            console.log('hurrrrrrraghhhhhhhh')
+    
+        }
+        // console.log(event,'whats this')
+        // console.log(event.data.object.id)
+    
+        res.json({success:true})
+    
+    }catch(e){
+console.log(e)
+    }
+    
+}
+)
 
 app.use(express.json())
 app.use(express.urlencoded({extended:true}))
