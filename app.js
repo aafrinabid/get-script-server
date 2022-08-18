@@ -488,6 +488,59 @@ app.get('/isAuth',verifyJwt,async(req,res,next)=>{
         console.log('umborse');
     }
 })
+
+app.post('/Oauth/google',async(req,res)=>{
+    const details=req.body.userObject
+    const scriptWriter=req.body.scriptwriter
+    console.log(details)
+    if(scriptWriter){
+        const user=await pool.query('select * from users where email=$1',[details.email])
+        if(user.rowCount>0 && user.rows[0].type==='scriptwriter'){
+            const role=1
+            const id=user.rows[0].id
+            const token= jwt.sign({id,role},'jwtsecret',{
+                expiresIn:3000,
+            })
+
+            res.json({auth:true,token,status:user.rows[0].status})
+        }else{
+            const user=await pool.query('insert into users(username,email,status,firstname,lastname,is_deleted,type) values($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+            [details.email,details.email,'approved',details.given_name,details.family_name,false,'scriptwriter'])
+
+            const id=user.rows[0].id
+            const role=1
+            const token= jwt.sign({id,role},'jwtsecret',{
+                expiresIn:3000,
+            })
+            res.json({auth:true,token,status:'approved'})
+
+        }
+    }else{
+        const user=await pool.query('select * from users where email=$1',[details.email])
+        if(user.rowCount>0 && user.rows[0].type==='producer' && user.rows[0].status==='approved'){
+            const role=2
+            const id=user.rows[0].id
+            const token=jwt.sign({id,role},'jwtsecret',{
+                expiresIn:3000,
+            })
+
+            res.json({auth:true,token,status:users.rows[0].status})
+        }else{
+            const user=await pool.query('insert into users(username,email,status,firstname,lastname,is_deleted,type) values($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+            [details.email,details.email,'pending',details.given_name,details.family_name,false,'producer'])
+
+            const id=user.rows[0].id
+            const role=2
+            const token= jwt.sign({id,role},'jwtsecret',{
+                expiresIn:3000,
+            })
+            res.json({auth:true,token,status:'pending'})
+
+        }
+     
+    }
+})
+
 //producer
 
 
@@ -938,10 +991,23 @@ let details
 
 // }else{
     details=await pool.query('SELECT users.* FROM users WHERE id=$1',[userid])
+    const length=details.rows[0].username.length
+    const name=details.rows[0].username
+    const username=name.split('')
+    const index=username.findIndex(letter=>letter==='@')
+    let finalName
+    if(index>0){
+        const diff=length-index
+        const deleted=username.splice(index,diff)
+        finalName=username.join('')
+    }else{
+        finalName=name
+
+    }
 // }
 console.log(details.rows[0],'hiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii')
 
-res.json({result:details.rows[0]})
+res.json({result:details.rows[0],username:finalName})
 }catch(e){
 console.log(e)
 }
