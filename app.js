@@ -570,12 +570,12 @@ app.post('/registerProducer',async(req,res)=>{
          [username,email,firstName,lastName,hashPassword,'pending',false,'producer',false]);
          const id= NewUser.rows[0].id
          const role=2
-         const email=NewUser.rows[0].email
+         const userEmail=NewUser.rows[0].email
          console.log(process.env.Node_mailer_Pass)
          const verification=await pool.query('INSERT INTO email_verification(users_id) VALUES($1) RETURNING *',[id])
          const emailToken =verification.rows[0].token
          const url=`http://localhost:3500/${id}/verify/${emailToken}`
-         await sentEmail(email,'verify email',url,process.env.Node_mailer_Pass)          
+         await sentEmail(userEmail,'verify email',url,process.env.Node_mailer_Pass)          
          const token= jwt.sign({id,role},'jwtsecret',{
             expiresIn:3000,
         })
@@ -638,16 +638,16 @@ app.post('/registerScriptwriter',async(req,res)=>{
             
          const hashPassword=await bcrypt.hash(password,10);
          console.log(hashPassword)
-         const NewUser=await pool.query('INSERT INTO users(username,email,firstname,lastname,password,status,is_deleted,TYPE,email_verified) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
+         const NewUser=await pool.query('INSERT INTO users(username,email,firstname,lastname,password,status,is_deleted,TYPE,email_verified) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
          [username,email,firstName,lastName,hashPassword,'approved',false,'scriptwriter',false]);
          const id= NewUser.rows[0].id
          const role=1
-         const email=NewUser.rows[0].email
+         const userEmail=NewUser.rows[0].email
          console.log(process.env.Node_mailer_Pass)
          const verification=await pool.query('INSERT INTO email_verification(users_id) VALUES($1) RETURNING *',[id])
          const emailToken =verification.rows[0].token
          const url=`http://localhost:3500/${id}/verify/${emailToken}`
-         await sentEmail(email,'verify email',url,process.env.Node_mailer_Pass)          
+         await sentEmail(userEmail,'verify email',url,process.env.Node_mailer_Pass)          
          const token= jwt.sign({id,role},'jwtsecret',{
             expiresIn:3000,
         })
@@ -695,8 +695,11 @@ app.get('/:id/verify/:token',async(req,res)=>{
     try{
         const id=req.params.id
         const token=req.params.token
-        const user= await pool.query('select * from email_verification where user_id=$1 and token=$2',[id,token])
+        console.log(id,token,'checcccccking')
+        const user= await pool.query('select * from email_verification where users_id=$1 and token=$2',[id,token])
+        console.log(user.rows[0])
         if(user.rowCount>0){
+            console.log(user.rows[0])
             const update=await pool.query('update users set email_verified=$1 where id=$2',[true,id])
              return res.redirect('http://localhost:3000/')
         }else{
@@ -704,8 +707,8 @@ app.get('/:id/verify/:token',async(req,res)=>{
         }
 
     }
-    catch{
-
+    catch(e){
+    console.log(e)
     }
 })
 
