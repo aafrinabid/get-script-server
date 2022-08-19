@@ -698,10 +698,12 @@ app.post('/loginScriptwriter',async(req,res)=>{
             }else{
                 throw new Error('Password is Wrong')
             }
+        }else{
+            throw new Error('user does not exist')
         }
     }catch(e){
-        console.log(e)
-        res.status(400).json({message:e.message})
+        console.log(e.message)
+        res.status(400).json({message:e.message,auth:false})
     }
 })
 
@@ -1052,10 +1054,12 @@ let details
         finalName=name
 
     }
+    const scriptCount = await pool.query('select count(scriptwriter_id) from script where scriptwriter_id=$1',[details.rows[0].id])
 // }
-console.log(details.rows[0],'hiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii')
+console.log(scriptCount.rows[0].count,'hiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii')
+const count=scriptCount.rows[0].count
 
-res.json({result:details.rows[0],username:finalName})
+res.json({result:details.rows[0],username:finalName,scriptCount:scriptCount.rows[0].count})
 }catch(e){
 console.log(e)
 }
