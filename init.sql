@@ -120,6 +120,7 @@ CREATE TABLE users (
     firstName VARCHAR NOT NULL,
     lastName VARCHAR NOT NULL,
     status VARCHAR NOT NULL,
+    email_verified BOOLEAN,
     is_deleted BOOLEAN NOT NULL,
     TYPE VARCHAR NOT NULL,
     PRIMARY KEY (id)
@@ -188,7 +189,7 @@ CREATE TABLE paytm(
     TXNDATE VARCHAR,
     PRIMARY KEY (TXNID),
     FOREIGN KEY (ORDERID)
-   REFERENCES script(script_id)
+    REFERENCES script(script_id)
 
 
 )
@@ -271,6 +272,15 @@ CREATE TABLE stripe_charges(
 
 );
 
+
+CREATE TABLE email_verification(
+    users_id uuid,
+    token uuid DEFAULT uuid_generate_v4 (),
+    password uuid DEFAULT uuid_generate_v4 (),
+    FOREIGN KEY(users_id)
+    REFERENCES users(id)
+
+    );
 
 
 
