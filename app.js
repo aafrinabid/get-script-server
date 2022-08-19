@@ -432,6 +432,20 @@ const role=req.role
 res.json({userId,role})
 })
 
+app.post('/getUsername',async(req,res)=>{
+    try{
+        const id=req.body.id
+        console.log(id,'checking')
+        // const username=await pool.query('select * from users where id=$1,'[id])
+        const username= await pool.query('select username from users where id=$1',[id])
+        console.log(username)
+        res.json({username:username.rows[0].username})
+    }catch(e){
+        console.log(e)
+    }
+    
+
+})
 
 
 app.get('/isAuth',verifyJwt,async(req,res,next)=>{
@@ -959,7 +973,7 @@ app.get('/fetchscript',async(req,res)=>{
         })
         // const result=scripts.rows
 const result=allScripts
-        console.log(genre,result,'rooooooooooows')
+        // console.log(genre,result,'rooooooooooows')
         res.status(200).json({result,genre})
 
     }catch(e){
@@ -1024,7 +1038,7 @@ let details
 //     details=await pool.query('SELECT users.* FROM users WHERE scriptwriter_id=$1',[userid])
 
 // }else{
-    details=await pool.query('SELECT users.* FROM users WHERE id=$1',[userid])
+    details=await pool.query('SELECT users.* FROM users WHERE username=$1',[userid])
     const length=details.rows[0].username.length
     const name=details.rows[0].username
     const username=name.split('')
