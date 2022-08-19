@@ -17,6 +17,7 @@ const PaytmChecksum=require('./PaytmChecksum')
 const https=require('https');
 const { json } = require('express');
 const stripe= require('stripe')(process.env.stripe_secret_key)
+const sentEmail= require('./utils/sendEmail')
 app.use(cors())
 
 const verifyJwt=(req,res,next)=>{
@@ -504,8 +505,8 @@ app.post('/Oauth/google',async(req,res)=>{
 
             res.json({auth:true,token,status:user.rows[0].status})
         }else{
-            const user=await pool.query('insert into users(username,email,status,firstname,lastname,is_deleted,type) values($1,$2,$3,$4,$5,$6,$7) RETURNING *',
-            [details.email,details.email,'approved',details.given_name,details.family_name,false,'scriptwriter'])
+            const user=await pool.query('insert into users(username,email,status,firstname,lastname,is_deleted,type,email_verified) values($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
+            [details.email,details.email,'approved',details.given_name,details.family_name,false,'scriptwriter',true])
 
             const id=user.rows[0].id
             const role=1
@@ -565,10 +566,16 @@ app.post('/registerProducer',async(req,res)=>{
             
          const hashPassword=await bcrypt.hash(password,10);
          console.log(hashPassword)
-         const NewUser=await pool.query('INSERT INTO users(username,email,firstname,lastname,password,status,is_deleted,TYPE) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
-         [username,email,firstName,lastName,hashPassword,'pending',false,'producer']);
+         const NewUser=await pool.query('INSERT INTO users(username,email,firstname,lastname,password,status,is_deleted,TYPE,email_verified) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
+         [username,email,firstName,lastName,hashPassword,'pending',false,'producer',false]);
          const id= NewUser.rows[0].id
          const role=2
+         const email=NewUser.rows[0].email
+         console.log(process.env.Node_mailer_Pass)
+         const verification=await pool.query('INSERT INTO email_verification(users_id) VALUES($1) RETURNING *',[id])
+         const emailToken =verification.rows[0].token
+         const url=`http://localhost:3500/${id}/verify/${emailToken}`
+         await sentEmail(email,'verify email',url,process.env.Node_mailer_Pass)          
          const token= jwt.sign({id,role},'jwtsecret',{
             expiresIn:3000,
         })
@@ -631,10 +638,16 @@ app.post('/registerScriptwriter',async(req,res)=>{
             
          const hashPassword=await bcrypt.hash(password,10);
          console.log(hashPassword)
-         const NewUser=await pool.query('INSERT INTO users(username,email,firstname,lastname,password,status,is_deleted,TYPE) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
-         [username,email,firstName,lastName,hashPassword,'approved',false,'scriptwriter']);
+         const NewUser=await pool.query('INSERT INTO users(username,email,firstname,lastname,password,status,is_deleted,TYPE,email_verified) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
+         [username,email,firstName,lastName,hashPassword,'approved',false,'scriptwriter',false]);
          const id= NewUser.rows[0].id
          const role=1
+         const email=NewUser.rows[0].email
+         console.log(process.env.Node_mailer_Pass)
+         const verification=await pool.query('INSERT INTO email_verification(users_id) VALUES($1) RETURNING *',[id])
+         const emailToken =verification.rows[0].token
+         const url=`http://localhost:3500/${id}/verify/${emailToken}`
+         await sentEmail(email,'verify email',url,process.env.Node_mailer_Pass)          
          const token= jwt.sign({id,role},'jwtsecret',{
             expiresIn:3000,
         })
@@ -675,6 +688,24 @@ app.post('/loginScriptwriter',async(req,res)=>{
     }catch(e){
         console.log(e)
         res.status(400).json({message:e.message})
+    }
+})
+
+app.get('/:id/verify/:token',async(req,res)=>{
+    try{
+        const id=req.params.id
+        const token=req.params.token
+        const user= await pool.query('select * from email_verification where user_id=$1 and token=$2',[id,token])
+        if(user.rowCount>0){
+            const update=await pool.query('update users set email_verified=$1 where id=$2',[true,id])
+             return res.redirect('http://localhost:3000/')
+        }else{
+        return res.send('INVALID URL')
+        }
+
+    }
+    catch{
+
     }
 })
 
