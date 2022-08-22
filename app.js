@@ -432,6 +432,20 @@ const role=req.role
 res.json({userId,role})
 })
 
+app.post('/getUsername',async(req,res)=>{
+    try{
+        const id=req.body.id
+        console.log(id,'checking')
+        // const username=await pool.query('select * from users where id=$1,'[id])
+        const username= await pool.query('select username from users where id=$1',[id])
+        console.log(username)
+        res.json({username:username.rows[0].username})
+    }catch(e){
+        console.log(e)
+    }
+    
+
+})
 
 
 app.get('/isAuth',verifyJwt,async(req,res,next)=>{
@@ -684,10 +698,12 @@ app.post('/loginScriptwriter',async(req,res)=>{
             }else{
                 throw new Error('Password is Wrong')
             }
+        }else{
+            throw new Error('user does not exist')
         }
     }catch(e){
-        console.log(e)
-        res.status(400).json({message:e.message})
+        console.log(e.message)
+        res.status(400).json({message:e.message,auth:false})
     }
 })
 
@@ -959,7 +975,7 @@ app.get('/fetchscript',async(req,res)=>{
         })
         // const result=scripts.rows
 const result=allScripts
-        console.log(genre,result,'rooooooooooows')
+        // console.log(genre,result,'rooooooooooows')
         res.status(200).json({result,genre})
 
     }catch(e){
@@ -989,6 +1005,31 @@ app.get('/scriptdetails',async(req,res)=>{
 
     }
     
+})
+
+app.post('/writersscripts',async(req,res)=>{
+    try{
+        const {username}=req.body
+        const scripts=await pool.query('SELECT script.script_id,script.featured,script_details.script_title,script_details.genres,script_details.description,script_medias.script_poster,script_medias.script_mini_poster FROM script JOIN script_medias ON script.script_id = script_medias.script_id join script_details on script.script_id=script_details.script_id join users on script.scriptwriter_id=users.id  WHERE users.username=$1',[username])
+        let scriptId={}
+        let allScripts=[]
+        scripts.rows.map(script=>{
+            if(scriptId[script.script_id]){
+                return
+
+            }else{
+                scriptId[script.script_id]=true
+                allScripts.push(script)
+            }
+        })
+        // const result=scripts.rows
+const result=allScripts
+        // console.log(genre,result,'rooooooooooows')
+        res.status(200).json(result)
+
+    }catch(e){
+console.log(e)
+    }
 })
 
 
@@ -1024,7 +1065,7 @@ let details
 //     details=await pool.query('SELECT users.* FROM users WHERE scriptwriter_id=$1',[userid])
 
 // }else{
-    details=await pool.query('SELECT users.* FROM users WHERE id=$1',[userid])
+    details=await pool.query('SELECT users.* FROM users WHERE username=$1',[userid])
     const length=details.rows[0].username.length
     const name=details.rows[0].username
     const username=name.split('')
@@ -1038,10 +1079,12 @@ let details
         finalName=name
 
     }
+    const scriptCount = await pool.query('select count(scriptwriter_id) from script where scriptwriter_id=$1',[details.rows[0].id])
 // }
-console.log(details.rows[0],'hiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii')
+console.log(scriptCount.rows[0].count,'hiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii')
+const count=scriptCount.rows[0].count
 
-res.json({result:details.rows[0],username:finalName})
+res.json({result:details.rows[0],username:finalName,scriptCount:scriptCount.rows[0].count})
 }catch(e){
 console.log(e)
 }
