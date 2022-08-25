@@ -505,6 +505,7 @@ app.get('/isAuth',verifyJwt,async(req,res,next)=>{
 })
 
 app.post('/Oauth/google',async(req,res)=>{
+   try{
     const details=req.body.userObject
     const scriptWriter=req.body.scriptwriter
     console.log(details)
@@ -518,7 +519,14 @@ app.post('/Oauth/google',async(req,res)=>{
             })
 
             res.json({auth:true,token,status:user.rows[0].status})
-        }else{
+        }
+           if(user.rows[0].type!=='producer'){
+            console.log('heeeeeeesh')
+            // return new Error('You are already registered as screenwriter, please use other mail address')
+            return res.json({message:'You are already registered as producer, please use other mail address',auth:false})
+
+        }
+        else{
             const user=await pool.query('insert into users(username,email,status,firstname,lastname,is_deleted,type,email_verified) values($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
             [details.email,details.email,'approved',details.given_name,details.family_name,false,'scriptwriter',true])
 
@@ -539,8 +547,15 @@ app.post('/Oauth/google',async(req,res)=>{
                 expiresIn:3000,
             })
 
-            res.json({auth:true,token,status:users.rows[0].status})
-        }else{
+            return res.json({auth:true,token,status:user.rows[0].status})
+        }
+        if(user.rows[0].type!=='producer'){
+            console.log('heeeeeeesh')
+            // return new Error('You are already registered as screenwriter, please use other mail address')
+            return res.json({message:'You are already registered as screenwriter, please use other mail address',auth:false})
+
+        }
+        else{
             const user=await pool.query('insert into users(username,email,status,firstname,lastname,is_deleted,type,email_verified) values($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
             [details.email,details.email,'pending',details.given_name,details.family_name,false,'producer',true])
 
@@ -554,6 +569,12 @@ app.post('/Oauth/google',async(req,res)=>{
         }
      
     }
+   }catch(e){
+    console.log(e)
+
+    res.json({message:e.message,auth:false})
+   }
+    
 })
 
 //producer
