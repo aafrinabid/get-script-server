@@ -541,8 +541,8 @@ app.post('/Oauth/google',async(req,res)=>{
 
             res.json({auth:true,token,status:users.rows[0].status})
         }else{
-            const user=await pool.query('insert into users(username,email,status,firstname,lastname,is_deleted,type) values($1,$2,$3,$4,$5,$6,$7) RETURNING *',
-            [details.email,details.email,'pending',details.given_name,details.family_name,false,'producer'])
+            const user=await pool.query('insert into users(username,email,status,firstname,lastname,is_deleted,type,email_verified) values($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
+            [details.email,details.email,'pending',details.given_name,details.family_name,false,'producer',true])
 
             const id=user.rows[0].id
             const role=2
