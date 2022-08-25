@@ -520,7 +520,7 @@ app.post('/Oauth/google',async(req,res)=>{
 
             res.json({auth:true,token,status:user.rows[0].status})
         }
-           if(user.rows[0].type!=='producer'){
+           if(user.rows[0].type!=='scriptwriter'){
             console.log('heeeeeeesh')
             // return new Error('You are already registered as screenwriter, please use other mail address')
             return res.json({message:'You are already registered as producer, please use other mail address',auth:false})
