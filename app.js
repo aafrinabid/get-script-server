@@ -426,17 +426,10 @@ const upload=multer({
 // }
 
 
-app.get('/getId',verifyJwt,async(req,res)=>{
-    try{
-        console.log(req.userId,'testing')
-        const userId= req.userId
-        const role=req.role
-        res.json({userId,role})
-    }catch(e){
-        console.log(e)
-
-    }
-
+app.get('/getId',verifyJwt,(req,res)=>{
+const userId= req.userId
+const role=req.role
+res.json({userId,role})
 })
 
 app.post('/getUsername',async(req,res)=>{
@@ -512,79 +505,78 @@ app.get('/isAuth',verifyJwt,async(req,res,next)=>{
 })
 
 app.post('/Oauth/google',async(req,res)=>{
-   try{
-    const details=req.body.userObject
-    const scriptWriter=req.body.scriptwriter
-    console.log(details,scriptWriter)
-    if(scriptWriter){
-        const user=await pool.query('select * from users where email=$1',[details.email])
-        if(user.rowCount>0 && user.rows[0].type==='scriptwriter'){
-            const role=1
-            const id=user.rows[0].id
-            const token= jwt.sign({id,role},'jwtsecret',{
-                expiresIn:3000,
-            })
-            console.log('loging in the user scriptwrtier')
-
-           return res.json({auth:true,token,status:user.rows[0].status,role})
-        }
-           if(user.rows[0].type!=='scriptwriter'){
-            console.log('heeeeeeesh')
-            // return new Error('You are already registered as screenwriter, please use other mail address')
-            return res.json({message:'You are already registered as producer, please use other mail address',auth:false})
-
-        }
-        else{
-            const user=await pool.query('insert into users(username,email,status,firstname,lastname,is_deleted,type,email_verified) values($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
-            [details.email,details.email,'approved',details.given_name,details.family_name,false,'scriptwriter',true])
-
-            const id=user.rows[0].id
-            const role=1
-            const token= jwt.sign({id,role},'jwtsecret',{
-                expiresIn:3000,
-            })
-            res.json({auth:true,token,status:'approved'})
-
-        }
-    }else{
-        const user=await pool.query('select * from users where email=$1',[details.email])
-        if(user.rowCount>0 && user.rows[0].type==='producer' && user.rows[0].status==='approved'){
-            const role=2
-            const id=user.rows[0].id
-            const token=jwt.sign({id,role},'jwtsecret',{
-                expiresIn:3000,
-            })
-
+    try{
+     const details=req.body.userObject
+     const scriptWriter=req.body.scriptwriter
+     console.log(details,scriptWriter)
+     if(scriptWriter){
+         const user=await pool.query('select * from users where email=$1',[details.email])
+         if(user.rowCount>0 && user.rows[0].type==='scriptwriter'){
+             const role=1
+             const id=user.rows[0].id
+             const token= jwt.sign({id,role},'jwtsecret',{
+                 expiresIn:3000,
+             })
+             console.log('loging in the user scriptwrtier')
+ 
             return res.json({auth:true,token,status:user.rows[0].status,role})
-        }
-        if(user.rows[0].type!=='producer'){
-            console.log('heeeeeeesh')
-            // return new Error('You are already registered as screenwriter, please use other mail address')
-            return res.json({message:'You are already registered as screenwriter, please use other mail address',auth:false})
-
-        }
-        else{
-            const user=await pool.query('insert into users(username,email,status,firstname,lastname,is_deleted,type,email_verified) values($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
-            [details.email,details.email,'pending',details.given_name,details.family_name,false,'producer',true])
-
-            const id=user.rows[0].id
-            const role=2
-            const token= jwt.sign({id,role},'jwtsecret',{
-                expiresIn:3000,
-            })
-            res.json({auth:true,token,status:'pending'})
-
-        }
-     
+         }
+            if(user.rows[0].type!=='scriptwriter'){
+             console.log('heeeeeeesh')
+             // return new Error('You are already registered as screenwriter, please use other mail address')
+             return res.json({message:'You are already registered as producer, please use other mail address',auth:false})
+ 
+         }
+         else{
+             const user=await pool.query('insert into users(username,email,status,firstname,lastname,is_deleted,type,email_verified) values($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
+             [details.email,details.email,'approved',details.given_name,details.family_name,false,'scriptwriter',true])
+ 
+             const id=user.rows[0].id
+             const role=1
+             const token= jwt.sign({id,role},'jwtsecret',{
+                 expiresIn:3000,
+             })
+             res.json({auth:true,token,status:'approved'})
+ 
+         }
+     }else{
+         const user=await pool.query('select * from users where email=$1',[details.email])
+         if(user.rowCount>0 && user.rows[0].type==='producer' && user.rows[0].status==='approved'){
+             const role=2
+             const id=user.rows[0].id
+             const token=jwt.sign({id,role},'jwtsecret',{
+                 expiresIn:3000,
+             })
+ 
+             return res.json({auth:true,token,status:user.rows[0].status,role})
+         }
+         if(user.rows[0].type!=='producer'){
+             console.log('heeeeeeesh')
+             // return new Error('You are already registered as screenwriter, please use other mail address')
+             return res.json({message:'You are already registered as screenwriter, please use other mail address',auth:false})
+ 
+         }
+         else{
+             const user=await pool.query('insert into users(username,email,status,firstname,lastname,is_deleted,type,email_verified) values($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
+             [details.email,details.email,'pending',details.given_name,details.family_name,false,'producer',true])
+ 
+             const id=user.rows[0].id
+             const role=2
+             const token= jwt.sign({id,role},'jwtsecret',{
+                 expiresIn:3000,
+             })
+             res.json({auth:true,token,status:'pending'})
+ 
+         }
+      
+     }
+    }catch(e){
+     console.log(e)
+ 
+     res.json({message:e.message,auth:false})
     }
-   }catch(e){
-    console.log(e)
-
-    res.json({message:e.message,auth:false})
-   }
-    
-})
-
+     
+ })
 //producer
 
 
