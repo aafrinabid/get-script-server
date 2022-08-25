@@ -426,10 +426,17 @@ const upload=multer({
 // }
 
 
-app.get('/getId',verifyJwt,(req,res)=>{
-const userId= req.userId
-const role=req.role
-res.json({userId,role})
+app.get('/getId',verifyJwt,async(req,res)=>{
+    try{
+        console.log(req.userId,'testing')
+        const userId= req.userId
+        const role=req.role
+        res.json({userId,role})
+    }catch(e){
+        console.log(e)
+
+    }
+
 })
 
 app.post('/getUsername',async(req,res)=>{
@@ -508,7 +515,7 @@ app.post('/Oauth/google',async(req,res)=>{
    try{
     const details=req.body.userObject
     const scriptWriter=req.body.scriptwriter
-    console.log(details)
+    console.log(details,scriptWriter)
     if(scriptWriter){
         const user=await pool.query('select * from users where email=$1',[details.email])
         if(user.rowCount>0 && user.rows[0].type==='scriptwriter'){
@@ -517,8 +524,9 @@ app.post('/Oauth/google',async(req,res)=>{
             const token= jwt.sign({id,role},'jwtsecret',{
                 expiresIn:3000,
             })
+            console.log('loging in the user scriptwrtier')
 
-            res.json({auth:true,token,status:user.rows[0].status})
+           return res.json({auth:true,token,status:user.rows[0].status,role})
         }
            if(user.rows[0].type!=='scriptwriter'){
             console.log('heeeeeeesh')
@@ -547,7 +555,7 @@ app.post('/Oauth/google',async(req,res)=>{
                 expiresIn:3000,
             })
 
-            return res.json({auth:true,token,status:user.rows[0].status})
+            return res.json({auth:true,token,status:user.rows[0].status,role})
         }
         if(user.rows[0].type!=='producer'){
             console.log('heeeeeeesh')
