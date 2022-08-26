@@ -18,16 +18,19 @@ const https=require('https');
 const { json } = require('express');
 const stripe= require('stripe')(process.env.stripe_secret_key)
 const sentEmail= require('./utils/sendEmail')
+const morgan=require('morgan')
 app.use(cors())
-
+app.use(morgan(':method :url  STATUS: :status  RESPONSE-TIME: :response-time ms'))
 const verifyJwt=(req,res,next)=>{
     const token=req.headers["x-access-token"];
 
     if(!token){
+        console.log('no token present')
         res.send('no token is there')
     }else{
         jwt.verify(token,"jwtsecret",(err,decoded)=>{
             if(err){
+                console.log('error not verified')
                 return res.json({auth:false,message:'authorization failed'})
             }else{
                 console.log('success verification');
@@ -388,6 +391,7 @@ console.log(e)
 
 app.use(express.json())
 app.use(express.urlencoded({extended:true}))
+
 // const corsOptions ={
 //     origin:'*', 
 //     credentials:true,            //access-control-allow-credentials:true
@@ -427,7 +431,8 @@ const upload=multer({
 
 
 app.get('/getId',verifyJwt,(req,res)=>{
-const userId= req.userId
+
+    const userId= req.userId
 const role=req.role
 res.json({userId,role})
 })
