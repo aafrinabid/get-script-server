@@ -36,8 +36,8 @@ const verifyJwt=(req,res,next)=>{
                 console.log('success verification');
                 req.userId=decoded.id;
                 req.role=decoded.role
-               
-               //  console.log(req.userId)
+               console.log(decoded)
+                console.log(req.userId,'all set indeed')
                 next();
             }
         })
@@ -434,16 +434,18 @@ app.get('/getId',verifyJwt,(req,res)=>{
 
     const userId= req.userId
 const role=req.role
+console.log(userId,role)
 res.json({userId,role})
 })
 
 app.post('/getUsername',async(req,res)=>{
     try{
         const id=req.body.id
+        console.log(req.body)
         console.log(id,'checking')
         // const username=await pool.query('select * from users where id=$1,'[id])
         const username= await pool.query('select username from users where id=$1',[id])
-        console.log(username)
+        console.log(username,'fetched the username you are looking for')
         res.json({username:username.rows[0].username})
     }catch(e){
         console.log(e)
@@ -526,7 +528,7 @@ app.post('/Oauth/google',async(req,res)=>{
  
             return res.json({auth:true,token,status:user.rows[0].status,role})
          }
-            if(user.rows[0].type!=='scriptwriter'){
+            if(user.rowCount>0 && user.rows[0].type!=='scriptwriter'){
              console.log('heeeeeeesh')
              // return new Error('You are already registered as screenwriter, please use other mail address')
              return res.json({message:'You are already registered as producer, please use other mail address',auth:false})
@@ -541,7 +543,7 @@ app.post('/Oauth/google',async(req,res)=>{
              const token= jwt.sign({id,role},'jwtsecret',{
                  expiresIn:3000,
              })
-             res.json({auth:true,token,status:'approved'})
+             res.json({auth:true,token,status:'approved',role})
  
          }
      }else{
@@ -570,7 +572,7 @@ app.post('/Oauth/google',async(req,res)=>{
              const token= jwt.sign({id,role},'jwtsecret',{
                  expiresIn:3000,
              })
-             res.json({auth:true,token,status:'pending'})
+             res.json({auth:true,token,status:'pending',role})
  
          }
       
@@ -808,15 +810,15 @@ app.get('/fetchProducers',async(req,res)=>{
 
 app.get('/getUserCount',async(req,res)=>{
     try{
-        const producers=await pool.query('SELECT COUNT(id) FROM producers WHERE status=$1 AND TYPE=$2',['approved','producer'])
-        const pendingProducers=await pool.query('SELECT COUNT(id) FROM producers WHERE status=$1 AND TYPE=$2 ',['pending','producer'])
-        const declinedProducers=await pool.query('SELECT COUNT(id) FROM producers WHERE status=$1 TYPE=$2',['rejected','producer'])
+        const producers=await pool.query('SELECT COUNT(id) FROM users WHERE status=$1 AND type=$2',['approved','producer'])
+        const pendingProducers=await pool.query('SELECT COUNT(id) FROM users WHERE status=$1 AND type=$2 ',['pending','producer'])
+        const declinedProducers=await pool.query('SELECT COUNT(id) FROM users WHERE status=$1 type=$2',['rejected','producer'])
         const producerCount=parseInt(producers.rows[0].count) 
         const pendingProducersCount=parseInt(pendingProducers.rows[0].count)
         const declinedProducersCount=parseInt(declinedProducers.rows[0].count)
 
-        const scriptwriters=await pool.query('SELECT COUNT(id) FROM scriptwriter WHERE status=$1 TYPE=$2',['approved','scriptwriter'])
-        const declinedScriptwriters=await pool.query('SELECT COUNT(id) FROM scriptwriter WHERE status=$1 TYPE=$2',['rejected','scriptwriter'])
+        const scriptwriters=await pool.query('SELECT COUNT(id) FROM users WHERE status=$1 type=$2',['approved','scriptwriter'])
+        const declinedScriptwriters=await pool.query('SELECT COUNT(id) FROM users WHERE status=$1 type=$2',['rejected','scriptwriter'])
         const scriptwriterCount=parseInt(scriptwriters.rows[0].count)
         const declinedScriptwritersCount=parseInt(declinedScriptwriters.rows[0].count)
 
@@ -839,7 +841,7 @@ app.post('/adminlogin',async(req,res)=>{
             if(admin.rows[0]['password']===password){
                 console.log(admin.rows[0])
                 const role=3;
-                const id=admin.rows[0]['admin_id']
+                const id=admin.rows[0]['id']
                 const token= jwt.sign({id,role},'jwtsecret',{
                     expiresIn:3000,
                 })
@@ -1164,13 +1166,20 @@ app.post('/addMessage',async(req,res)=>{
       })
 
 
-      app.post('/messagedetail',async(req,res)=>{
+      app.post('/messagedetail',verifyJwt,async(req,res)=>{
         try{console.log('*****************************')
-            const {userid}=req.body
+            const userid=req.userId
+            console.log(userid)
      const data=await pool.query('SELECT * FROM msg WHERE sender_id=$1  ORDER BY updated_time DESC',[userid])
+     console.log(data.rows,'checking messages')
      if(data.rowCount>0){
 
-        res.json({result:data.rows})
+       return res.json({result:data.rows,message:1})
+     }else{
+        return res.json({
+            message:0
+        })
+
      }
 
     }catch(e){

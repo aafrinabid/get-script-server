@@ -155,7 +155,7 @@ CREATE TABLE msg(
   sender_id uuid,
   reciever_id uuid,
   updated_time VARCHAR NOT NULL,
-  last_msg VARCHAR NOT NULL,
+  last_msg VARCHAR,
   PRIMARY KEY (message_id)
    FOREIGN KEY (sender_id)
    REFERENCES users(id)
@@ -218,7 +218,9 @@ CREATE TABLE script_pitch_table(
    obstacles VARCHAR NOT NULL,
     highlights VARCHAR NOT NULL,
    open_road VARCHAR NOT NULL,
+   character VARCHAR NOT NULL,
    is_deleted BOOLEAN NOT NULL,
+
    FOREIGN KEY (script_id)
    REFERENCES script(script_id)
 
@@ -304,3 +306,7 @@ TXNID: '20220806111212800110168630503941675',
 --     message_id uuid DEFAULT uuid_generate_v4 (),
 --     sender_id  
 -- )
+
+
+
+insert into users(username,email,password,firstname,lastname,status,email_verification,type,is_deleted) values ('aafrin','mohdaafrin@outlook.com','qwerty123','aafrin','abid','approved',true,'admin',false);
