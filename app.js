@@ -766,7 +766,7 @@ app.post('/approved',async(req,res)=>{
         console.log(result)
         if(result.rows[0]['status']==='approved'){
 
-            res.status(200).json({status:true})
+            res.status(200).json({status:true,id:id})
         }
         else{
             throw new Error('some thing wrong happened')
@@ -784,7 +784,7 @@ const result=await pool.query('UPDATE users SET is_deleted=$1,status=$2 WHERE id
 console.log(result.rows[0])
 if(result.rows[0]['is_deleted']){
 
-    res.status(200).json({deleted:true})
+    res.status(200).json({deleted:true,id})
 }else{
     throw new Error('somenthing happend at our end sorry ')
 }
@@ -829,6 +829,7 @@ app.get('/getUserCount',async(req,res)=>{
 
     }catch(e){
         console.error(e)
+        res.json({message:e})
 
     }
 })
