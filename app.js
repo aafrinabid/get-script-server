@@ -1147,6 +1147,32 @@ app.post('/savescript',verifyJwt,async(req,res)=>{
     }
 })
 
+app.post('/savedscripts',verifyJwt,async(req,res)=>{
+    try{
+        const userId=req.userId
+        const scripts=await pool.query('SELECT script.script_id,script.featured,script_details.script_title,script_details.genres,script_details.description,script_medias.script_poster,script_medias.script_mini_poster FROM script JOIN script_medias ON script.script_id = script_medias.script_id join script_details on script.script_id=script_details.script_id join users on script.scriptwriter_id=users.id join saved_scripts on script.script_id=saved_scripts.script_id  WHERE saved_scripts.user_id=$1',[userId])
+        let scriptId={}
+        let allScripts=[]
+        scripts.rows.map(script=>{
+            if(scriptId[script.script_id]){
+                return
+
+            }else{
+                scriptId[script.script_id]=true
+                allScripts.push(script)
+            }
+        })
+        // const result=scripts.rows
+const result=allScripts
+        // console.log(genre,result,'rooooooooooows')
+        res.status(200).json(result)
+
+    }catch(e){
+        console.log(e)
+
+    }
+})
+
 
 // profile
 
