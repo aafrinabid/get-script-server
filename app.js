@@ -205,6 +205,9 @@ app.post('/payment/callback',(req,res)=>{
                             // res.redirect(`http://localhost:3000/status/${result.ORDERID}`)
     
                             }
+                            else{
+                                res.redirect('http://localhost:3000/')
+                            }
                 });
             });
         
@@ -1346,7 +1349,7 @@ const io =require('socket.io')(3001,{
             }else{
                 console.log(onlineUsers,'snakes here*************&&&&&&&')
                 updatedlist=onlineUsers.concat({userId:socket.userId,socketId:socket.id})
-                console.log(updatedlist,'fuck sake')
+                console.log(updatedlist)
                 // state.users=[...state.users,action.payload.users]
 
 
