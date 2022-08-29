@@ -18,7 +18,8 @@ const https=require('https');
 const { json } = require('express');
 const stripe= require('stripe')(process.env.stripe_secret_key)
 const sentEmail= require('./utils/sendEmail')
-const morgan=require('morgan')
+const morgan=require('morgan');
+const { type } = require('os');
 app.use(cors())
 app.use(morgan(':method :url  STATUS: :status  RESPONSE-TIME: :response-time ms'))
 const verifyJwt=(req,res,next)=>{
@@ -195,7 +196,7 @@ app.post('/payment/callback',(req,res)=>{
                                 // const insert=await res
 
 
-                                res.redirect('http://localhost:3000/')
+                                res.redirect('http://localhost:3000/Browse/0')
                                 //store in db
                             //     db.collection('payments').doc('mPDd5z0pNiInbSIIotfj').update({paymentHistory:firebase.firestore.FieldValue.arrayUnion(result)})
                             //     .then(()=>console.log("Update success"))
@@ -206,7 +207,7 @@ app.post('/payment/callback',(req,res)=>{
     
                             }
                             else{
-                                res.redirect('http://localhost:3000/')
+                                res.redirect('http://localhost:3000/Browse/0')
                             }
                 });
             });
@@ -875,25 +876,31 @@ app.get('/fetchnotification',async(req,res)=>{
 //script
 
 
-app.post('/uploadscript',upload.single('file'),(req,res)=>{
-    const type=req.file.mimetype
-    console.log(type)
-    let ext
-    console.log(type.endsWith('png'))
-    type.endsWith('png')?ext='png':type.endsWith('pdf')?ext='pdf':type.endsWith('jpg')?ext='jpg':type.endsWith('jpeg')?ext='jpeg':''
-    console.log(ext)
-    const filename=Date.now().toString()
-    s3.putObject({
-        Bucket:process.env.BUCKET_NAME,
-        Key:`${filename}.${ext}`,
-        Body:req.file.buffer,
-        ACL:'public-read',   
-    },(err)=>{
-        if(err)return res.status(400).send(err)
-        console.log(`${process.env.BUCKET_STORAGE_URL}${filename}.${ext}`)
-        const url=`${process.env.BUCKET_STORAGE_URL}${filename}.${ext}`
-        res.json({message:'File uploaded to S3;',url})
-    })
+app.post('/uploadscript',upload.single('file'),async(req,res)=>{
+    try{
+        const type=req.file.mimetype
+        console.log(type)
+        let ext
+        console.log(type.endsWith('png'))
+        type.endsWith('png')?ext='png':type.endsWith('pdf')?ext='pdf':type.endsWith('jpg')?ext='jpg':type.endsWith('jpeg')?ext='jpeg':''
+        console.log(ext)
+        const filename=Date.now().toString()
+        s3.putObject({
+            Bucket:process.env.BUCKET_NAME,
+            Key:`${filename}.${ext}`,
+            Body:req.file.buffer,
+            ACL:'public-read',   
+        },(err)=>{
+            if(err)return res.status(400).send(err)
+            console.log(`${process.env.BUCKET_STORAGE_URL}${filename}.${ext}`)
+            const url=`${process.env.BUCKET_STORAGE_URL}${filename}.${ext}`
+            res.json({message:'File uploaded to S3;',url})
+        })
+
+    }catch(e){
+        console.log(e)
+    }
+   
     
 })
 const typeHandler=(type,name)=>{
@@ -903,7 +910,7 @@ if(name==='entertainment'){
         return 'MOVIE'
     }
     if(type===20){
-        return 'TV Series'
+        return 'TV_Series'
     }
     if(type===30){
         return 'Anime'
@@ -968,9 +975,13 @@ app.get('/fetchscript',async(req,res)=>{
         console.log('fetching')
         const genre=req.headers["genre"];
         const inDetail=req.headers["indetail"]
+        const entertainment=req.headers['type']
         console.log(req.headers['scriptid'])
+        console.log(entertainment)
         // console.log(genre)
         // console.log(inDetail)
+
+        
         if(inDetail==='true'){
             console.log('in detail')
             const scriptId=req.headers['scriptid']
@@ -993,7 +1004,29 @@ app.get('/fetchscript',async(req,res)=>{
            return res.status(200).json({result,genre})
         }
 
-        const scripts=await pool.query('SELECT  script.script_id,script.featured,script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) ORDER BY script.featured DESC;',[genre])
+        if(entertainment==0){
+            console.log(type,'is zerooooo')
+            const scripts=await pool.query('SELECT  script.script_id,script.featured,script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) ORDER BY script.featured DESC;',[genre]) 
+            let scriptId={}
+            let allScripts=[]
+            scripts.rows.map(script=>{
+                if(scriptId[script.script_id]){
+                    return
+    
+                }else{
+                    scriptId[script.script_id]=true
+                    allScripts.push(script)
+                }
+            })
+            // const result=scripts.rows
+    const result=allScripts
+            // console.log(genre,result,'rooooooooooows')
+          return res.status(200).json({result,genre})
+            
+
+        }
+
+        const scripts=await pool.query('SELECT  script.script_id,script.featured,script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) AND script_details.entertainment=$2 ORDER BY script.featured DESC;',[genre,entertainment]) 
         let scriptId={}
         let allScripts=[]
         scripts.rows.map(script=>{
@@ -1078,7 +1111,49 @@ app.get('/bannerscript',async(req,res)=>{
     }
    
 })
+
+app.post('/isSaved',verifyJwt,async (req,res)=>{
+    try{
+        const userId=req.userId
+        const {scriptId}=req.body
+        const script= await pool.query('SELECT * FROM saved_scripts WHERE user_id=$1 AND script_id= $2',[userId,scriptId])
+        if(script.rowCount>0){
+            return res.status(200).json(true)
+        }else{
+            return res.status(200).json(false)
+
+        }
+
+
+    }catch(e){
+        console.log(e)
+    }
+})
+
+
+app.post('/savescript',verifyJwt,async(req,res)=>{
+    const {scriptId}=req.body
+    const {state}= req.body
+    const userId=req.userId
+    console.log(scriptId,state)
+    if(state===false){
+        const addScript=await pool.query('INSERT INTO saved_scripts (user_id,script_id) VALUES ($1,$2)',[userId,scriptId])
+        if(addScript.rowCount>0){
+         return   res.status(200).json({updated:true})
+        }
+    }else{
+        const removeScript=await pool.query('DELETE FROM saved_scripts WHERE script_id= $1 AND user_id= $2',[scriptId,userId])
+        return res.status(200).json({updated:true})
+    }
+})
+
+
 // profile
+
+
+
+
+
 app.post('/getemail',async(req,res)=>{
     const {scriptId}=req.body
     const email=await pool.query('select users.email from script join users on script.scriptwriter_id=users.id where script.script_id=$1',[scriptId])

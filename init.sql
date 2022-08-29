@@ -284,7 +284,14 @@ CREATE TABLE email_verification(
 
     );
 
-
+CREATE TABLE saved_scripts(
+    user_id uuid,
+    script_id uuid,
+    FOREIGN KEY (user_id)
+    REFERENCES users(id),
+    FOREIGN KEY (script_id)
+    REFERENCES script(script_id)
+)
 
 
 TXNID: '20220806111212800110168630503941675',
