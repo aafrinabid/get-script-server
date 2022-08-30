@@ -937,6 +937,77 @@ if(name==='script'){
     
 }
 
+const nextTypeHandler=(type,name)=>{
+    console.log('in type')
+if(name==='entertainment'){
+    if(type==='MOVIE'){
+        return 10
+    }
+    if(type==='TV_Series'){
+        return 20
+    }
+    if(type==='Anime'){
+        return 30
+    }
+
+}
+if(name==='script'){
+    if(type==='Movie Concept'){
+        return 10
+    }
+    if(type==='Series Pilot Episode'){
+        return 20
+    }
+    if(type==='Series Concept'){
+        return 30
+    }
+    if(type==='Anime Concept'){
+        return 40
+    }
+    if(type==='Short Film Concept'){
+        return 50
+    }
+}
+    
+}
+
+
+
+app.post('/nextScriptEpisode',async(req,res)=>{
+    try{
+        const {id}=req.body
+        const script= await pool.query('SELECT * from script where script_id=$1 AND main=$2',[id,true])
+        let mainScript
+        if(script.rowCount>0){
+ mainScript=script.rows[0].script_id
+        }else{
+            const script= await pool.query('SELECT * from series_episodes where child_script=$1',[id])
+            mainScript=script.rows[0].main_script
+        }
+
+        const scriptDetail= await pool.query('select script.featured,users.id,script_details.*,script_pitch_table.* from script join users on script.scriptwriter_id = users.id join script_details on script.script_id= script_details.script_id  join script_pitch_table on script.script_id=script_pitch_table.script_id WHERE script.script_id=$1',[mainScript])
+        const result={
+            titleName : scriptDetail.rows[0].script_title,
+           entertainmentType:nextTypeHandler(scriptDetail.rows[0].entertainment,'entertainment'), 
+           scriptType:nextTypeHandler(scriptDetail.rows[0].script_type,'script'),
+           genres:scriptDetail.rows[0].genres,
+            table:{
+            theOrigin:scriptDetail.rows[0].the_origin,
+            humanHook:scriptDetail.rows[0].human_hook,
+            Desires:scriptDetail.rows[0].desires,
+            obstacles:scriptDetail.rows[0].obstacles,
+            highlights:scriptDetail.rows[0].highlights,
+            openRoad:scriptDetail.rows[0].open_road,
+            character:scriptDetail.rows[0].character
+            }
+        }
+        res.json({result,featured:scriptDetail.rows[0].featured})
+
+    }catch(e){
+        console.log(e)
+    }
+})
+
 app.post('/scriptupload',verifyJwt,async(req,res)=>{
     try{
         console.log(res.body)

@@ -142,6 +142,7 @@ CREATE TABLE script(
     scriptwriter_id uuid,
     script_id uuid DEFAULT uuid_generate_v4 (),
     featured BOOLEAN NOT NULL,
+    main BOOLEAN NOT NULL,
     is_deleted BOOLEAN NOT NULL,
     PRIMARY KEY (script_id)
     FOREIGN KEY (scriptwriter_id)
@@ -290,6 +291,16 @@ CREATE TABLE saved_scripts(
     FOREIGN KEY (user_id)
     REFERENCES users(id),
     FOREIGN KEY (script_id)
+    REFERENCES script(script_id)
+),
+
+CREATE TABLE series_episodes(
+    main_script uuid,
+    child_script uuid,
+    episode smallint,
+    FOREIGN KEY (main_script)
+    REFERENCES script(script_id),
+    FOREIGN KEY child_script
     REFERENCES script(script_id)
 )
 
