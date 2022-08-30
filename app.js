@@ -1530,7 +1530,6 @@ const io =require('socket.io')(3001,{
         // // })
     })
     socket.on('changeOnline',(data)=>{
-        console.log(data,'shits hapeniung cool strut')
         io.to('room').emit('modify',data.users)
     })
    
