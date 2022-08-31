@@ -297,13 +297,20 @@ CREATE TABLE saved_scripts(
 CREATE TABLE series_episodes(
     main_script uuid,
     child_script uuid,
-    episode smallint,
     FOREIGN KEY (main_script)
     REFERENCES script(script_id),
-    FOREIGN KEY child_script
+    FOREIGN KEY (child_script)
     REFERENCES script(script_id)
 )
 
+CREATE TABLE episodes(
+    script_id uuid,
+    season smallint,
+    episode smallint,
+    FOREIGN KEY (script_id)
+    REFERENCES script(script_id)
+
+)
 
 TXNID: '20220806111212800110168630503941675',
   BANKTXNID: '19839495930',
@@ -328,3 +335,6 @@ TXNID: '20220806111212800110168630503941675',
 
 
 insert into users(username,email,password,firstname,lastname,status,email_verification,type,is_deleted) values ('aafrin','mohdaafrin@outlook.com','qwerty123','aafrin','abid','approved',true,'admin',false);
+
+
+'select episodes.* from series_episodes join episodes on series_episodes.child_script=episodes.script_id where episode.season=$1 and episode.episode= $2',[] 

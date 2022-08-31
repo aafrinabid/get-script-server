@@ -1010,21 +1010,36 @@ app.post('/nextScriptEpisode',async(req,res)=>{
 
 app.post('/scriptupload',verifyJwt,async(req,res)=>{
     try{
-        console.log(res.body)
+        console.log(req.body)
         console.log('enterd',req.userId)
         const id=req.userId
+        const mainScript=req.body.mainScriptId;
+        const episode=req.headers["episode"];
+        const season=req.headers["season"];
+        console.log(mainScript,'scriptId i needed')
+
+
         const data=req.body
         console.log(data)
         const entertainmentType=typeHandler(data.entertainmentType,'entertainment')
         const scriptType=typeHandler(data.scriptType,'script')
         console.log(entertainmentType,scriptType)
-        const script=await pool.query('INSERT INTO script(scriptwriter_id,featured,is_deleted) VALUES($1,$2,$3) RETURNING script_id',
-        [id,false,false])
+        const script=await pool.query('INSERT INTO script(scriptwriter_id,featured,is_deleted,main) VALUES($1,$2,$3,$4) RETURNING script_id',
+        [id,false,false,mainScript===false?true:false])
         console.log(script)
        
         const  scriptId=script.rows[0]['script_id']
        const scriptDetail= await pool.query('INSERT INTO script_details(script_id,script_title,entertainment,script_type,languages,description,genres,is_deleted) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
         [scriptId,data.titleName,entertainmentType,scriptType,'English',data.description,data.genres,false]);
+
+        if(entertainmentType!=='MOVIE'){
+            if(mainScript===false){
+           await pool.query('INSERT INTO episodes(script_id,season,episode) VALUES ($1,$2,$3)',[scriptId,1,1])           
+            }
+            else if(mainScript!==false){
+                await pool.query('INSERT INTO episodes (script_id,season,episode) VALUES ($1,$2,$3)',[scriptId,season,episode])
+            }
+        }
     
     
        const pitchTable=await pool.query('INSERT INTO script_pitch_table(script_id,the_origin,human_hook,character,desires,obstacles,highlights,open_road,is_deleted) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',
@@ -1032,6 +1047,10 @@ app.post('/scriptupload',verifyJwt,async(req,res)=>{
     
         await pool.query('INSERT INTO script_medias(script_id,script_pdf_url,script_poster,script_mini_poster,script_video,is_deleted) VALUES($1,$2,$3,$4,$5,$6)',
         [scriptId,data['pdf'],data['poster'],data['miniPoster'],data['video'],false])
+        if(mainScript!==false){
+            console.log(mainScript,'pleasssse')
+            await pool.query('INSERT INTO series_episodes(main_script,child_script) VALUES ($1,$2)',[mainScript,scriptId])
+        }
          res.status(200).json({uploaded:true,scriptId})
     console.log('updated the script upload')
     }catch(err){
@@ -1039,6 +1058,32 @@ app.post('/scriptupload',verifyJwt,async(req,res)=>{
         res.status(400).json({message:err.message})
     }
         
+})
+
+app.post('/episodeCheck',async(req,res)=>{
+    try{
+const {scriptId,season,episode}=req.body
+console.log(req.body)
+console.log(scriptId,typeof season,typeof episode)
+const mainScript= await pool.query('select * from episodes where script_id=$1 and episode=$2 and season=$3',[scriptId,episode,season])
+console.log(mainScript)
+if(mainScript.rowCount>0){
+    console.log('rows are greater for sure')
+    return res.json({notFound:false})
+}
+else{
+    console.log(scriptId,typeof season,episode)
+    const script= await pool.query('select * from episodes  JOIN series_episodes  ON episodes.script_id=series_episodes.child_script WHERE series_episodes.main_script=$1 and episodes.season=$2 and episodes.episode= $3',[scriptId,season,episode] )
+    if(script.rowCount>0){
+        console.log(script.rows)
+        return res.json({notFound:false})
+    }else{
+        return res.json({notFound:true})
+    }
+}
+    }catch(e){
+console.log(e)
+    }
 })
 
 app.get('/fetchscript',async(req,res)=>{
@@ -1056,7 +1101,7 @@ app.get('/fetchscript',async(req,res)=>{
         if(inDetail==='true'){
             console.log('in detail')
             const scriptId=req.headers['scriptid']
-            const scripts=await pool.query('SELECT  script_details.script_id,script.featured,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) AND script_details.script_id != $2 ORDER BY script.featured DESC;',[genre,scriptId])
+            const scripts=await pool.query('SELECT  script_details.script_id,script.featured,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) AND script_details.script_id != $2 AND script.main=$3 ORDER BY script.featured DESC;',[genre,scriptId,true])
             let newScriptId={}
             let allScripts=[]
             scripts.rows.map(script=>{
@@ -1077,7 +1122,7 @@ app.get('/fetchscript',async(req,res)=>{
 
         if(entertainment==0){
             console.log(type,'is zerooooo')
-            const scripts=await pool.query('SELECT  script.script_id,script.featured,script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) ORDER BY script.featured DESC;',[genre]) 
+            const scripts=await pool.query('SELECT  script.script_id,script.featured,script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) AND script.main=$2 ORDER BY script.featured DESC;',[genre,true]) 
             let scriptId={}
             let allScripts=[]
             scripts.rows.map(script=>{
@@ -1097,7 +1142,7 @@ app.get('/fetchscript',async(req,res)=>{
 
         }
 
-        const scripts=await pool.query('SELECT  script.script_id,script.featured,script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) AND script_details.entertainment=$2 ORDER BY script.featured DESC;',[genre,entertainment]) 
+        const scripts=await pool.query('SELECT  script.script_id,script.featured,script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) AND script_details.entertainment=$2 AND script.main=$3 ORDER BY script.featured DESC;',[genre,entertainment,true]) 
         let scriptId={}
         let allScripts=[]
         scripts.rows.map(script=>{
