@@ -46,7 +46,6 @@ const verifyJwt=(req,res,next)=>{
 
 }
 
-// const { request } = require('http');
 //paytm payment
 app.get('/isAuthPayment',verifyJwt,async(req,res)=>{
     const userId=req.userId
@@ -178,24 +177,6 @@ app.post('/payment/callback',(req,res)=>{
                                 console.log(result)
                                 const inster=await pool.query('INSERT INTO paytm(txnid,banktxnid,orderid,txnamount,status,txntype,gatewayname,respcode,respmsg,bankname,mid,paymentmode,refundamt,txndate) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',[result['TXNID'],result['BANKTXNID'],result['ORDERID'],result['txnamount'],result['STATUS'],['TXNTYPE'],result['GATEWAYNAME'],result['RESPCODE'],result['RESPMSG'],result['BANKNAME'],result['MID'],result['PAYMENTMODE'],result['REFUNDAMT'],result['TXNDATE']])
 
-                                // const transfer=Object.keys(result)
-                                // let count=0
-                                // transfer.forEach(async(list)=>{
-                                //     console.log(list)
-                                //     if(count===0){
-                                //         console.log(list[count],result[transfer[count]],'insterting')
-                                //         const insert=await pool.query('INSERT INTO paytm($1) values($2)',[list[count].toLocaleLowerCase(),result[transfer[count]]])
-                                //         count++
-                                //     }else{
-                                //      const insert=await pool.query('UPDATE paytm set $1=$2 where ',[list[count].toLocaleLowerCase(),result[transfer[count]]])
-                                //      count++
-                                //     }
-                                // })
-                                
-
-                                // const insert=await res
-
-
                                 res.redirect('http://localhost:3000/Browse/0')
                                 //store in db
                             //     db.collection('payments').doc('mPDd5z0pNiInbSIIotfj').update({paymentHistory:firebase.firestore.FieldValue.arrayUnion(result)})
@@ -290,7 +271,6 @@ app.post('/paymentstripe',express.json(),express.urlencoded({extended:true}),asy
                     orderId:product.id
                 }
 
-                // orderId:product.id,
             },{idempotencyKey})
             console.log(paymentIntent.client_secret)
             
@@ -307,20 +287,6 @@ app.post('/paymentstripe',express.json(),express.urlencoded({extended:true}),asy
     }
     
     
-//     .then(customer=>{
-//         stripe.paymentIntents.create({
-//             amount:product.price * 100,
-//             currency:'inr',
-//             customer:customer.id,
-//             receipt_email:token.email,
-//             // orderId:product.id,
-//         },{idempotencyKey})
-//     })
-//     .then(result=>{
-//         console.log(result,'resukts comming')
-//         res.status(200).json(result)
-//     })
-//     .catch(err=>console.log(err))
 })
 
 
@@ -396,11 +362,6 @@ console.log(e)
 app.use(express.json())
 app.use(express.urlencoded({extended:true}))
 
-// const corsOptions ={
-//     origin:'*', 
-//     credentials:true,            //access-control-allow-credentials:true
-//     optionSuccessStatus:200,
-//  }
 mongoose.connect(process.env.MONGO_URL,{
     useNewUrlParser:true,
     useUnifiedTopology:true,
@@ -424,14 +385,6 @@ const upload=multer({
 
 
 
-// async function hashPassword(p){
-//     const password=await bcrypt.hash(p,10);
-//     return password;
-// }
-
-// const compPassword=async(p)=>{
-//     const p
-// }
 
 
 app.get('/getId',verifyJwt,(req,res)=>{
@@ -447,7 +400,6 @@ app.post('/getUsername',async(req,res)=>{
         const id=req.body.id
         console.log(req.body)
         console.log(id,'checking')
-        // const username=await pool.query('select * from users where id=$1,'[id])
         const username= await pool.query('select username from users where id=$1',[id])
         console.log(username,'fetched the username you are looking for')
         res.json({username:username.rows[0].username})
@@ -508,7 +460,6 @@ app.get('/isAuth',verifyJwt,async(req,res,next)=>{
         }else({auth:false,message:'not authorised yet',role,status})
 
     }
-//    console.log(result)
 
     }catch(e){
         console.log('umborse');
@@ -534,7 +485,6 @@ app.post('/Oauth/google',async(req,res)=>{
          }
             if(user.rowCount>0 && user.rows[0].type!=='scriptwriter'){
              console.log('heeeeeeesh')
-             // return new Error('You are already registered as screenwriter, please use other mail address')
              return res.json({message:'You are already registered as producer, please use other mail address',auth:false})
  
          }
@@ -563,7 +513,6 @@ app.post('/Oauth/google',async(req,res)=>{
          }
          if(user.rows[0].type!=='producer'){
              console.log('heeeeeeesh')
-             // return new Error('You are already registered as screenwriter, please use other mail address')
              return res.json({message:'You are already registered as screenwriter, please use other mail address',auth:false})
  
          }
@@ -595,10 +544,6 @@ app.post('/registerProducer',async(req,res)=>{
     try{
         const {username,password,email,firstName,lastName}=req.body;
         console.log(password,username)
-        // if(username='aafrin'){
-        //     console.log('not happening in usernaem')
-        //     res.status(400).json({auth:false,message:'username already exist'})
-        // }
         const user=await pool.query('SELECT * FROM users WHERE username=$1',[username]);
         const useremail= await pool.query('SELECT * FROM users WHERE email=$1',[email])
         console.log(user)
@@ -649,7 +594,6 @@ app.post('/loginProducer',async(req,res)=>{
                     expiresIn:3000,
                 })
                 if(user.rows[0].status==='pending'){
-                    // throw new Error('Awaiting confirmation from the presidernt')
                     res.status(200).json({token:token,status,auth:true,role})
                 }
                 if(user.rows[0].status==='approved'){
@@ -720,7 +664,6 @@ app.post('/loginScriptwriter',async(req,res)=>{
                     expiresIn:3000,
                 })
                 if(user.rows[0].status==='blocked'){
-                    // throw new Error('Awaiting confirmation from the presidernt')
                     res.status(200).json({token:token,status,auth:false,role})
                 }
                 if(user.rows[0].status==='approved'){
@@ -1095,8 +1038,6 @@ app.get('/fetchscript',async(req,res)=>{
         const episodes=req.headers['episodes']
         console.log(req.headers['scriptid'])
         console.log(entertainment)
-        // console.log(genre)
-        // console.log(inDetail)
         console.log(episodes,'all set for episodessssss')
         if(episodes==='true'){
         console.log(episodes,'all set for episodessssss inside')
@@ -1118,10 +1059,7 @@ app.get('/fetchscript',async(req,res)=>{
                     allScripts.push(script)
                 }
             })
-            // const result=scripts.rows
     const result=allScripts
-            // const result=scripts.rows
-            // console.log(result)
            return res.status(200).json({result,genre})
         }
         
@@ -1153,16 +1091,12 @@ app.get('/fetchscript',async(req,res)=>{
                     allScripts.push(script)
                 }
             })
-            // const result=scripts.rows
     const result=allScripts
-            // const result=scripts.rows
-            // console.log(result)
            return res.status(200).json({result,genre})
         }
 
         if(entertainment==0){
             console.log(type,'is zerooooo')
-            // const scripts=await pool.query('SELECT  script.script_id,script.featured,script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) AND script.main=$2 ORDER BY script.featured DESC;',[genre,true]) 
         const scripts=await pool.query('SELECT  script.script_id,script.featured,script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres)  AND script.main=$2 ORDER BY script.featured DESC;',[genre,true]) 
 
             let scriptId={}
@@ -1176,9 +1110,7 @@ app.get('/fetchscript',async(req,res)=>{
                     allScripts.push(script)
                 }
             })
-            // const result=scripts.rows
     const result=allScripts
-            // console.log(genre,result,'rooooooooooows')
           return res.status(200).json({result,genre})
             
 
@@ -1196,9 +1128,7 @@ app.get('/fetchscript',async(req,res)=>{
                 allScripts.push(script)
             }
         })
-        // const result=scripts.rows
 const result=allScripts
-        // console.log(genre,result,'rooooooooooows')
         res.status(200).json({result,genre})
 
     }catch(e){
@@ -1214,9 +1144,6 @@ const result=allScripts
 app.get('/scriptdetails',async(req,res)=>{
     try{
         const scriptId=req.headers['scriptid']
-        // console.log(scriptId,'*****^^^^^^*****')
-        // const scriptDetail= await pool.query(' select scriptwriter.username,script_details.*,script_medias.*,script_pitch_table.* from scripts join scriptwriter on scripts.scriptwriter_id = scriptwriter.scriptwriter_id join script_details on scripts.script_id= $1 join script_medias on scripts.script_id = $2 join script_pitch_table on scripts.script_id=$3',
-        // [scriptId,scriptId,scriptId])
           const scriptDetail= await pool.query('select script.featured,script.main,users.username,users.id,script_details.*,script_medias.*,script_pitch_table.* from script join users on script.scriptwriter_id = users.id join script_details on script.script_id= script_details.script_id join script_medias on script.script_id = script_medias.script_id join script_pitch_table on script.script_id=script_pitch_table.script_id WHERE script.script_id=$1',
         [scriptId])
         let episodes
@@ -1258,9 +1185,7 @@ app.post('/writersscripts',async(req,res)=>{
                 allScripts.push(script)
             }
         })
-        // const result=scripts.rows
 const result=allScripts
-        // console.log(genre,result,'rooooooooooows')
         res.status(200).json(result)
 
     }catch(e){
@@ -1273,7 +1198,6 @@ console.log(e)
 app.get('/bannerscript',async(req,res)=>{
     try{
         const scripts=await pool.query('SELECT  script_details.script_id,script_details.script_title,script_details.description,script_medias.script_pdf_url,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id JOIN script ON script_details.script_id = script.script_id where script.main=$1',[true])
-        // console.log(scripts.rowCount)
         const index=Math.floor(Math.random()*scripts.rowCount)
         const result=scripts.rows[index]
         res.status(200).json({result})
@@ -1333,9 +1257,7 @@ app.post('/savedscripts',verifyJwt,async(req,res)=>{
                 allScripts.push(script)
             }
         })
-        // const result=scripts.rows
 const result=allScripts
-        // console.log(genre,result,'rooooooooooows')
         res.status(200).json(result)
 
     }catch(e){
@@ -1364,11 +1286,6 @@ const {userid,role}=req.body
 console.log(req.body)
 console.log(userid)
 let details
-// if(role==1){
-//     console.log('in i n1111111')
-//     details=await pool.query('SELECT users.* FROM users WHERE scriptwriter_id=$1',[userid])
-
-// }else{
     details=await pool.query('SELECT users.* FROM users WHERE username=$1',[userid])
     const length=details.rows[0].username.length
     const name=details.rows[0].username
@@ -1396,7 +1313,6 @@ console.log(e)
 //message
 app.post('/addMessage',async(req,res)=>{
     try{
-        // console.log(req.body)/
         const {from,to,message}=req.body;
         const data= await messageModel.create({
             message:{text:message},
@@ -1471,17 +1387,7 @@ app.post('/addMessage',async(req,res)=>{
             console.log(req.body)
             let data
             data=await pool.query('SELECT username from users WHERE id=$1',[id])
-        //     if(role==1){
-        //          data=await pool.query('SELECT username from scriptwriter WHERE scriptwriter_id=$1',[id])
-      
-        //     }
-        //     if(role===2){
-        //        data=await pool.query('SELECT username from producers WHERE producer_id=$1',[id])
-      
-        //   }
-        //   if(role===3){
-        //        data=await pool.query('SELECT username from adminPanel WHERER admin_id=$1',[id])
-        //   }
+   
           console.log(data)
           res.json({username:data.rows[0].username})
             }catch(e){
@@ -1557,11 +1463,6 @@ const jwtVerify=(token)=>{
                 console.log('success verification');
                  userId=decoded.id;
                 console.log(userId)
-                // req.role=decoded.role
-                // return decoded.id 
-                // next();
-               
-               //  console.log(req.userId)
             }
         })
     }
@@ -1590,12 +1491,10 @@ const io =require('socket.io')(3001,{
         console.log(socket.userId,socket.id)
         next();
     } else {
-        // socket.leave('room')
         next(new Error('Authentication error'));
     }
 })
   .on('connection',socket=>{
-    // console.log(socket.rooms)
     global.chatSocket=socket;
     socket.on('join-chat',(data=>{
         console.log('joined the chat',data)
@@ -1622,13 +1521,11 @@ const io =require('socket.io')(3001,{
                 console.log(onlineUsers,'snakes here*************&&&&&&&')
                 updatedlist=onlineUsers.concat({userId:socket.userId,socketId:socket.id})
                 console.log(updatedlist)
-                // state.users=[...state.users,action.payload.users]
 
 
             }
             onlineUsers=updatedlist
             console.log(onlineUsers,'safwan loves kimiko')
-            // onlineUsers.push({userId:socket.userId,socketId:socket.id})
             io.to('room').emit('addUserOnline',{
                 onlineUsers
             }
@@ -1644,7 +1541,6 @@ const io =require('socket.io')(3001,{
             })
         }
        
-        // console.log('onlinehandler*************************************',onlineUsers)
         socket.on('checkonline',data=>{
             io.to('room').emit('isonline',{
                 status:true,
@@ -1655,14 +1551,6 @@ const io =require('socket.io')(3001,{
        
     })
 
-    // socket.on('checkOnline',async(x)=>{
-    //     const currentUsers=await pool.query('select * from onlineusers where user_id=$1',[x])
-    //     console.log(currentUsers.rows[0],x,'(((((((((((((((())))))))))))))))))))))))))))))))))))')
-    //     io.to('room').emit('isOnline',{
-    //         status:currentUsers.rows[0].online_status,
-    //         data:currentUsers.rows[0]
-    //     })
-    // })
 
 
     socket.on('offline',async(data)=>{
@@ -1681,24 +1569,11 @@ const io =require('socket.io')(3001,{
 
           socket.on('newUsers',(data)=>{
             console.log(data,'sick of this')
-            // data.onlineUsers.filter(dat=>dat.socketId!==data.socketId).map(dat=>{
-            //     io.to(dat.socket.id).emit('changeIt',{
-            //         users:data.onlineUsers
-            //     })
-            // })
             io.to('room').emit('changeIt',{
                 users:data.onlineUsers
             })
           })
-        // await pool.query('update onlineusers  set online_status=$1 where user_id=$2',[false,data.userId])
-        
-        // // let currentOnlineUser=onlineUsers.filter(user=>user!==data.userId)
-        // //  onlineUsers=currentOnlineUser
-        // //  console.log(onlineUsers)
-
-        // // io.to('room').emit('latestStatus',{
-        // //   users:currentOnlineUser
-        // // })
+     
     })
     socket.on('changeOnline',(data)=>{
         io.to('room').emit('modify',data.users)
@@ -1744,9 +1619,7 @@ console.log(e)
         io.to(data.to).emit('notifies',{
             messageid:data.room
         })
-        // const message=data.msg;
-        // const sender=data.from;
-        // const reciever=data.to
+
         const room=data.room
        
         io.to(room).emit('recieve-msg',{
@@ -1758,11 +1631,5 @@ console.log(e)
             
 
         })
-        // socket.broadcast.emit('recieve-msg',{
-        //     sender:data.from,
-        //     msg:data.msg,
-        //     reciever:data.to
-
-        // })
     })
   })
