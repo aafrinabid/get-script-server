@@ -142,6 +142,7 @@ CREATE TABLE script(
     scriptwriter_id uuid,
     script_id uuid DEFAULT uuid_generate_v4 (),
     featured BOOLEAN NOT NULL,
+    main BOOLEAN NOT NULL,
     is_deleted BOOLEAN NOT NULL,
     PRIMARY KEY (script_id)
     FOREIGN KEY (scriptwriter_id)
@@ -155,7 +156,7 @@ CREATE TABLE msg(
   sender_id uuid,
   reciever_id uuid,
   updated_time VARCHAR NOT NULL,
-  last_msg VARCHAR NOT NULL,
+  last_msg VARCHAR,
   PRIMARY KEY (message_id)
    FOREIGN KEY (sender_id)
    REFERENCES users(id)
@@ -218,7 +219,9 @@ CREATE TABLE script_pitch_table(
    obstacles VARCHAR NOT NULL,
     highlights VARCHAR NOT NULL,
    open_road VARCHAR NOT NULL,
+   character VARCHAR NOT NULL,
    is_deleted BOOLEAN NOT NULL,
+
    FOREIGN KEY (script_id)
    REFERENCES script(script_id)
 
@@ -282,8 +285,32 @@ CREATE TABLE email_verification(
 
     );
 
+CREATE TABLE saved_scripts(
+    user_id uuid,
+    script_id uuid,
+    FOREIGN KEY (user_id)
+    REFERENCES users(id),
+    FOREIGN KEY (script_id)
+    REFERENCES script(script_id)
+),
 
+CREATE TABLE series_episodes(
+    main_script uuid,
+    child_script uuid,
+    FOREIGN KEY (main_script)
+    REFERENCES script(script_id),
+    FOREIGN KEY (child_script)
+    REFERENCES script(script_id)
+)
 
+CREATE TABLE episodes(
+    script_id uuid,
+    season smallint,
+    episode smallint,
+    FOREIGN KEY (script_id)
+    REFERENCES script(script_id)
+
+)
 
 TXNID: '20220806111212800110168630503941675',
   BANKTXNID: '19839495930',
@@ -304,3 +331,10 @@ TXNID: '20220806111212800110168630503941675',
 --     message_id uuid DEFAULT uuid_generate_v4 (),
 --     sender_id  
 -- )
+
+
+
+insert into users(username,email,password,firstname,lastname,status,email_verification,type,is_deleted) values ('aafrin','mohdaafrin@outlook.com','qwerty123','aafrin','abid','approved',true,'admin',false);
+
+
+'select episodes.* from series_episodes join episodes on series_episodes.child_script=episodes.script_id where episode.season=$1 and episode.episode= $2',[] 
