@@ -18,7 +18,8 @@ const https=require('https');
 const { json } = require('express');
 const stripe= require('stripe')(process.env.stripe_secret_key)
 const sentEmail= require('./utils/sendEmail')
-const morgan=require('morgan')
+const morgan=require('morgan');
+const { type } = require('os');
 app.use(cors())
 app.use(morgan(':method :url  STATUS: :status  RESPONSE-TIME: :response-time ms'))
 const verifyJwt=(req,res,next)=>{
@@ -195,7 +196,7 @@ app.post('/payment/callback',(req,res)=>{
                                 // const insert=await res
 
 
-                                res.redirect('http://localhost:3000/')
+                                res.redirect('http://localhost:3000/Browse/0')
                                 //store in db
                             //     db.collection('payments').doc('mPDd5z0pNiInbSIIotfj').update({paymentHistory:firebase.firestore.FieldValue.arrayUnion(result)})
                             //     .then(()=>console.log("Update success"))
@@ -206,7 +207,7 @@ app.post('/payment/callback',(req,res)=>{
     
                             }
                             else{
-                                res.redirect('http://localhost:3000/')
+                                res.redirect('http://localhost:3000/Browse/0')
                             }
                 });
             });
@@ -875,25 +876,31 @@ app.get('/fetchnotification',async(req,res)=>{
 //script
 
 
-app.post('/uploadscript',upload.single('file'),(req,res)=>{
-    const type=req.file.mimetype
-    console.log(type)
-    let ext
-    console.log(type.endsWith('png'))
-    type.endsWith('png')?ext='png':type.endsWith('pdf')?ext='pdf':type.endsWith('jpg')?ext='jpg':type.endsWith('jpeg')?ext='jpeg':''
-    console.log(ext)
-    const filename=Date.now().toString()
-    s3.putObject({
-        Bucket:process.env.BUCKET_NAME,
-        Key:`${filename}.${ext}`,
-        Body:req.file.buffer,
-        ACL:'public-read',   
-    },(err)=>{
-        if(err)return res.status(400).send(err)
-        console.log(`${process.env.BUCKET_STORAGE_URL}${filename}.${ext}`)
-        const url=`${process.env.BUCKET_STORAGE_URL}${filename}.${ext}`
-        res.json({message:'File uploaded to S3;',url})
-    })
+app.post('/uploadscript',upload.single('file'),async(req,res)=>{
+    try{
+        const type=req.file.mimetype
+        console.log(type)
+        let ext
+        console.log(type.endsWith('png'))
+        type.endsWith('png')?ext='png':type.endsWith('pdf')?ext='pdf':type.endsWith('jpg')?ext='jpg':type.endsWith('jpeg')?ext='jpeg':''
+        console.log(ext)
+        const filename=Date.now().toString()
+        s3.putObject({
+            Bucket:process.env.BUCKET_NAME,
+            Key:`${filename}.${ext}`,
+            Body:req.file.buffer,
+            ACL:'public-read',   
+        },(err)=>{
+            if(err)return res.status(400).send(err)
+            console.log(`${process.env.BUCKET_STORAGE_URL}${filename}.${ext}`)
+            const url=`${process.env.BUCKET_STORAGE_URL}${filename}.${ext}`
+            res.json({message:'File uploaded to S3;',url})
+        })
+
+    }catch(e){
+        console.log(e)
+    }
+   
     
 })
 const typeHandler=(type,name)=>{
@@ -903,7 +910,7 @@ if(name==='entertainment'){
         return 'MOVIE'
     }
     if(type===20){
-        return 'TV Series'
+        return 'TV_Series'
     }
     if(type===30){
         return 'Anime'
@@ -930,23 +937,109 @@ if(name==='script'){
     
 }
 
+const nextTypeHandler=(type,name)=>{
+    console.log('in type')
+if(name==='entertainment'){
+    if(type==='MOVIE'){
+        return 10
+    }
+    if(type==='TV_Series'){
+        return 20
+    }
+    if(type==='Anime'){
+        return 30
+    }
+
+}
+if(name==='script'){
+    if(type==='Movie Concept'){
+        return 10
+    }
+    if(type==='Series Pilot Episode'){
+        return 20
+    }
+    if(type==='Series Concept'){
+        return 30
+    }
+    if(type==='Anime Concept'){
+        return 40
+    }
+    if(type==='Short Film Concept'){
+        return 50
+    }
+}
+    
+}
+
+
+
+app.post('/nextScriptEpisode',async(req,res)=>{
+    try{
+        const {id}=req.body
+        const script= await pool.query('SELECT * from script where script_id=$1 AND main=$2',[id,true])
+        let mainScript
+        if(script.rowCount>0){
+ mainScript=script.rows[0].script_id
+        }else{
+            const script= await pool.query('SELECT * from series_episodes where child_script=$1',[id])
+            mainScript=script.rows[0].main_script
+        }
+
+        const scriptDetail= await pool.query('select script.featured,users.id,script_details.*,script_pitch_table.* from script join users on script.scriptwriter_id = users.id join script_details on script.script_id= script_details.script_id  join script_pitch_table on script.script_id=script_pitch_table.script_id WHERE script.script_id=$1',[mainScript])
+        const result={
+            titleName : scriptDetail.rows[0].script_title,
+           entertainmentType:nextTypeHandler(scriptDetail.rows[0].entertainment,'entertainment'), 
+           scriptType:nextTypeHandler(scriptDetail.rows[0].script_type,'script'),
+           genres:scriptDetail.rows[0].genres,
+            table:{
+            theOrigin:scriptDetail.rows[0].the_origin,
+            humanHook:scriptDetail.rows[0].human_hook,
+            Desires:scriptDetail.rows[0].desires,
+            obstacles:scriptDetail.rows[0].obstacles,
+            highlights:scriptDetail.rows[0].highlights,
+            openRoad:scriptDetail.rows[0].open_road,
+            character:scriptDetail.rows[0].character
+            }
+        }
+        res.json({result,featured:scriptDetail.rows[0].featured})
+
+    }catch(e){
+        console.log(e)
+    }
+})
+
 app.post('/scriptupload',verifyJwt,async(req,res)=>{
     try{
-        console.log(res.body)
+        console.log(req.body)
         console.log('enterd',req.userId)
         const id=req.userId
+        const mainScript=req.body.mainScriptId;
+        const episode=req.headers["episode"];
+        const season=req.headers["season"];
+        console.log(mainScript,'scriptId i needed')
+
+
         const data=req.body
         console.log(data)
         const entertainmentType=typeHandler(data.entertainmentType,'entertainment')
         const scriptType=typeHandler(data.scriptType,'script')
         console.log(entertainmentType,scriptType)
-        const script=await pool.query('INSERT INTO script(scriptwriter_id,featured,is_deleted) VALUES($1,$2,$3) RETURNING script_id',
-        [id,false,false])
+        const script=await pool.query('INSERT INTO script(scriptwriter_id,featured,is_deleted,main) VALUES($1,$2,$3,$4) RETURNING script_id',
+        [id,false,false,mainScript===false?true:false])
         console.log(script)
        
         const  scriptId=script.rows[0]['script_id']
        const scriptDetail= await pool.query('INSERT INTO script_details(script_id,script_title,entertainment,script_type,languages,description,genres,is_deleted) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
         [scriptId,data.titleName,entertainmentType,scriptType,'English',data.description,data.genres,false]);
+
+        if(entertainmentType!=='MOVIE'){
+            if(mainScript===false){
+           await pool.query('INSERT INTO episodes(script_id,season,episode) VALUES ($1,$2,$3)',[scriptId,1,1])           
+            }
+            else if(mainScript!==false){
+                await pool.query('INSERT INTO episodes (script_id,season,episode) VALUES ($1,$2,$3)',[scriptId,season,episode])
+            }
+        }
     
     
        const pitchTable=await pool.query('INSERT INTO script_pitch_table(script_id,the_origin,human_hook,character,desires,obstacles,highlights,open_road,is_deleted) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',
@@ -954,6 +1047,10 @@ app.post('/scriptupload',verifyJwt,async(req,res)=>{
     
         await pool.query('INSERT INTO script_medias(script_id,script_pdf_url,script_poster,script_mini_poster,script_video,is_deleted) VALUES($1,$2,$3,$4,$5,$6)',
         [scriptId,data['pdf'],data['poster'],data['miniPoster'],data['video'],false])
+        if(mainScript!==false){
+            console.log(mainScript,'pleasssse')
+            await pool.query('INSERT INTO series_episodes(main_script,child_script) VALUES ($1,$2)',[mainScript,scriptId])
+        }
          res.status(200).json({uploaded:true,scriptId})
     console.log('updated the script upload')
     }catch(err){
@@ -963,18 +1060,88 @@ app.post('/scriptupload',verifyJwt,async(req,res)=>{
         
 })
 
+app.post('/episodeCheck',async(req,res)=>{
+    try{
+const {scriptId,season,episode}=req.body
+console.log(req.body)
+console.log(scriptId,typeof season,typeof episode)
+const mainScript= await pool.query('select * from episodes where script_id=$1 and episode=$2 and season=$3',[scriptId,episode,season])
+console.log(mainScript)
+if(mainScript.rowCount>0){
+    console.log('rows are greater for sure')
+    return res.json({notFound:false})
+}
+else{
+    console.log(scriptId,typeof season,episode)
+    const script= await pool.query('select * from episodes  JOIN series_episodes  ON episodes.script_id=series_episodes.child_script WHERE series_episodes.main_script=$1 and episodes.season=$2 and episodes.episode= $3',[scriptId,season,episode] )
+    if(script.rowCount>0){
+        console.log(script.rows)
+        return res.json({notFound:false})
+    }else{
+        return res.json({notFound:true})
+    }
+}
+    }catch(e){
+console.log(e)
+    }
+})
+
 app.get('/fetchscript',async(req,res)=>{
     try{
         console.log('fetching')
         const genre=req.headers["genre"];
         const inDetail=req.headers["indetail"]
+        const entertainment=req.headers['type']
+        const episodes=req.headers['episodes']
         console.log(req.headers['scriptid'])
+        console.log(entertainment)
         // console.log(genre)
         // console.log(inDetail)
+        console.log(episodes,'all set for episodessssss')
+        if(episodes==='true'){
+        console.log(episodes,'all set for episodessssss inside')
+
+            const scriptId=req.headers['scriptid']
+            const main=await pool.query('SELECT * FROM series_episodes WHERE main_script=$1 OR child_script=$2',[scriptId,scriptId])
+            const mainScript=main.rows[0].main_script
+            const scripts = await pool.query('SELECT  script.script_id,script.featured,script_details.script_title,script_details.genres,script_medias.script_poster,episodes.* FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id join series_episodes on script_details.script_id=series_episodes.child_script or script_details.script_id=series_episodes.main_script join episodes on script_details.script_id=episodes.script_id where series_episodes.main_script=$1 and script.script_id!=$2 GROUP BY script.script_id,script_details.script_title,script_details.genres,script_medias.script_poster,episodes.script_id,episodes.episode,episodes.season  ORDER BY episodes.season,episodes.episode',[mainScript,scriptId])
+            console.log(scripts)
+            let newScriptId={}
+            let allScripts=[]
+            let genre='More Episodes on This script'
+            scripts.rows.map(script=>{
+                if(newScriptId[script.script_id]){
+                    return
+    
+                }else{
+                    newScriptId[script.script_id]=true
+                    allScripts.push(script)
+                }
+            })
+            // const result=scripts.rows
+    const result=allScripts
+            // const result=scripts.rows
+            // console.log(result)
+           return res.status(200).json({result,genre})
+        }
+        
+
+        
         if(inDetail==='true'){
+           
             console.log('in detail')
             const scriptId=req.headers['scriptid']
-            const scripts=await pool.query('SELECT  script_details.script_id,script.featured,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) AND script_details.script_id != $2 ORDER BY script.featured DESC;',[genre,scriptId])
+            const main=await pool.query('SELECT * FROM series_episodes WHERE main_script=$1 OR child_script=$2',[scriptId,scriptId])
+            let scripts
+            if(main.rowCount>0){
+                const mainScript=main.rows[0].main_script
+
+                scripts=await pool.query('SELECT  script_details.script_id,script.featured,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) AND script_details.script_id != $2 AND script.main=$3 AND script_details.script_id!=$4 ORDER BY script.featured DESC;',[genre,scriptId,true,mainScript])
+            }else{
+                scripts=await pool.query('SELECT  script_details.script_id,script.featured,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) AND script_details.script_id != $2 AND script.main=$3  ORDER BY script.featured DESC;',[genre,scriptId,true])
+
+                
+            }
             let newScriptId={}
             let allScripts=[]
             scripts.rows.map(script=>{
@@ -993,7 +1160,31 @@ app.get('/fetchscript',async(req,res)=>{
            return res.status(200).json({result,genre})
         }
 
-        const scripts=await pool.query('SELECT  script.script_id,script.featured,script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) ORDER BY script.featured DESC;',[genre])
+        if(entertainment==0){
+            console.log(type,'is zerooooo')
+            // const scripts=await pool.query('SELECT  script.script_id,script.featured,script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) AND script.main=$2 ORDER BY script.featured DESC;',[genre,true]) 
+        const scripts=await pool.query('SELECT  script.script_id,script.featured,script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres)  AND script.main=$2 ORDER BY script.featured DESC;',[genre,true]) 
+
+            let scriptId={}
+            let allScripts=[]
+            scripts.rows.map(script=>{
+                if(scriptId[script.script_id]){
+                    return
+    
+                }else{
+                    scriptId[script.script_id]=true
+                    allScripts.push(script)
+                }
+            })
+            // const result=scripts.rows
+    const result=allScripts
+            // console.log(genre,result,'rooooooooooows')
+          return res.status(200).json({result,genre})
+            
+
+        }
+
+        const scripts=await pool.query('SELECT  script.script_id,script.featured,script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) AND script_details.entertainment=$2 AND script.main=$3 ORDER BY script.featured DESC;',[genre,entertainment,true]) 
         let scriptId={}
         let allScripts=[]
         scripts.rows.map(script=>{
@@ -1011,7 +1202,7 @@ const result=allScripts
         res.status(200).json({result,genre})
 
     }catch(e){
-        console.log('heeeeeey')
+        console.log(e)
         res.status(400).json({message:e.message})
 
     }
@@ -1026,12 +1217,25 @@ app.get('/scriptdetails',async(req,res)=>{
         // console.log(scriptId,'*****^^^^^^*****')
         // const scriptDetail= await pool.query(' select scriptwriter.username,script_details.*,script_medias.*,script_pitch_table.* from scripts join scriptwriter on scripts.scriptwriter_id = scriptwriter.scriptwriter_id join script_details on scripts.script_id= $1 join script_medias on scripts.script_id = $2 join script_pitch_table on scripts.script_id=$3',
         // [scriptId,scriptId,scriptId])
-          const scriptDetail= await pool.query('select script.featured,users.username,users.id,script_details.*,script_medias.*,script_pitch_table.* from script join users on script.scriptwriter_id = users.id join script_details on script.script_id= script_details.script_id join script_medias on script.script_id = script_medias.script_id join script_pitch_table on script.script_id=script_pitch_table.script_id WHERE script.script_id=$1',
+          const scriptDetail= await pool.query('select script.featured,script.main,users.username,users.id,script_details.*,script_medias.*,script_pitch_table.* from script join users on script.scriptwriter_id = users.id join script_details on script.script_id= script_details.script_id join script_medias on script.script_id = script_medias.script_id join script_pitch_table on script.script_id=script_pitch_table.script_id WHERE script.script_id=$1',
         [scriptId])
+        let episodes
+        let episodeState
+        if(scriptDetail.rows[0].main){
+            episodes=await pool.query('select * from series_episodes where main_script=$1',[scriptId])
+        }else{
+            episodes=await pool.query('select * from series_episodes where child_script=$1',[scriptId])
+        }
+        if(episodes.rowCount>0){
+            episodeState=true
+
+        }else{
+            episodeState=false
+        }
         console.log('nodejsssssssssss',scriptDetail.rows[0])
         const result=scriptDetail.rows[0]
         console.log(result)
-        res.status(200).json({result})
+        res.status(200).json({result,episodeState:episodeState})
     }catch(e){
         res.status(404).json({message:e.message})
 
@@ -1042,7 +1246,7 @@ app.get('/scriptdetails',async(req,res)=>{
 app.post('/writersscripts',async(req,res)=>{
     try{
         const {username}=req.body
-        const scripts=await pool.query('SELECT script.script_id,script.featured,script_details.script_title,script_details.genres,script_details.description,script_medias.script_poster,script_medias.script_mini_poster FROM script JOIN script_medias ON script.script_id = script_medias.script_id join script_details on script.script_id=script_details.script_id join users on script.scriptwriter_id=users.id  WHERE users.username=$1',[username])
+        const scripts=await pool.query('SELECT script.script_id,script.featured,script_details.script_title,script_details.genres,script_details.description,script_medias.script_poster,script_medias.script_mini_poster FROM script JOIN script_medias ON script.script_id = script_medias.script_id join script_details on script.script_id=script_details.script_id join users on script.scriptwriter_id=users.id  WHERE users.username=$1 AND script.main=$2',[username,true])
         let scriptId={}
         let allScripts=[]
         scripts.rows.map(script=>{
@@ -1078,7 +1282,75 @@ app.get('/bannerscript',async(req,res)=>{
     }
    
 })
+
+app.post('/isSaved',verifyJwt,async (req,res)=>{
+    try{
+        const userId=req.userId
+        const {scriptId}=req.body
+        const script= await pool.query('SELECT * FROM saved_scripts WHERE user_id=$1 AND script_id= $2',[userId,scriptId])
+        if(script.rowCount>0){
+            return res.status(200).json(true)
+        }else{
+            return res.status(200).json(false)
+
+        }
+
+
+    }catch(e){
+        console.log(e)
+    }
+})
+
+
+app.post('/savescript',verifyJwt,async(req,res)=>{
+    const {scriptId}=req.body
+    const {state}= req.body
+    const userId=req.userId
+    console.log(scriptId,state)
+    if(state===false){
+        const addScript=await pool.query('INSERT INTO saved_scripts (user_id,script_id) VALUES ($1,$2)',[userId,scriptId])
+        if(addScript.rowCount>0){
+         return   res.status(200).json({updated:true})
+        }
+    }else{
+        const removeScript=await pool.query('DELETE FROM saved_scripts WHERE script_id= $1 AND user_id= $2',[scriptId,userId])
+        return res.status(200).json({updated:true})
+    }
+})
+
+app.post('/savedscripts',verifyJwt,async(req,res)=>{
+    try{
+        const userId=req.userId
+        const scripts=await pool.query('SELECT script.script_id,script.featured,script_details.script_title,script_details.genres,script_details.description,script_medias.script_poster,script_medias.script_mini_poster FROM script JOIN script_medias ON script.script_id = script_medias.script_id join script_details on script.script_id=script_details.script_id join users on script.scriptwriter_id=users.id join saved_scripts on script.script_id=saved_scripts.script_id  WHERE saved_scripts.user_id=$1',[userId])
+        let scriptId={}
+        let allScripts=[]
+        scripts.rows.map(script=>{
+            if(scriptId[script.script_id]){
+                return
+
+            }else{
+                scriptId[script.script_id]=true
+                allScripts.push(script)
+            }
+        })
+        // const result=scripts.rows
+const result=allScripts
+        // console.log(genre,result,'rooooooooooows')
+        res.status(200).json(result)
+
+    }catch(e){
+        console.log(e)
+
+    }
+})
+
+
 // profile
+
+
+
+
+
 app.post('/getemail',async(req,res)=>{
     const {scriptId}=req.body
     const email=await pool.query('select users.email from script join users on script.scriptwriter_id=users.id where script.script_id=$1',[scriptId])
@@ -1429,7 +1701,6 @@ const io =require('socket.io')(3001,{
         // // })
     })
     socket.on('changeOnline',(data)=>{
-        console.log(data,'shits hapeniung cool strut')
         io.to('room').emit('modify',data.users)
     })
    
