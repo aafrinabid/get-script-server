@@ -1272,7 +1272,7 @@ console.log(e)
 
 app.get('/bannerscript',async(req,res)=>{
     try{
-        const scripts=await pool.query('SELECT  script_details.script_id,script_details.script_title,script_details.description,script_medias.script_pdf_url,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id')
+        const scripts=await pool.query('SELECT  script_details.script_id,script_details.script_title,script_details.description,script_medias.script_pdf_url,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id JOIN script ON script_details.script_id = script.script_id where script.main=$1',[true])
         // console.log(scripts.rowCount)
         const index=Math.floor(Math.random()*scripts.rowCount)
         const result=scripts.rows[index]
