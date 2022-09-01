@@ -1128,9 +1128,20 @@ app.get('/fetchscript',async(req,res)=>{
 
         
         if(inDetail==='true'){
+           
             console.log('in detail')
             const scriptId=req.headers['scriptid']
-            const scripts=await pool.query('SELECT  script_details.script_id,script.featured,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) AND script_details.script_id != $2 AND script.main=$3 ORDER BY script.featured DESC;',[genre,scriptId,true])
+            const main=await pool.query('SELECT * FROM series_episodes WHERE main_script=$1 OR child_script=$2',[scriptId,scriptId])
+            let scripts
+            if(main.rowCount>0){
+                const mainScript=main.rows[0].main_script
+
+                scripts=await pool.query('SELECT  script_details.script_id,script.featured,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) AND script_details.script_id != $2 AND script.main=$3 AND script_details.script_id!=$4 ORDER BY script.featured DESC;',[genre,scriptId,true,mainScript])
+            }else{
+                scripts=await pool.query('SELECT  script_details.script_id,script.featured,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) AND script_details.script_id != $2 AND script.main=$3  ORDER BY script.featured DESC;',[genre,scriptId,true])
+
+                
+            }
             let newScriptId={}
             let allScripts=[]
             scripts.rows.map(script=>{
@@ -1235,7 +1246,7 @@ app.get('/scriptdetails',async(req,res)=>{
 app.post('/writersscripts',async(req,res)=>{
     try{
         const {username}=req.body
-        const scripts=await pool.query('SELECT script.script_id,script.featured,script_details.script_title,script_details.genres,script_details.description,script_medias.script_poster,script_medias.script_mini_poster FROM script JOIN script_medias ON script.script_id = script_medias.script_id join script_details on script.script_id=script_details.script_id join users on script.scriptwriter_id=users.id  WHERE users.username=$1',[username])
+        const scripts=await pool.query('SELECT script.script_id,script.featured,script_details.script_title,script_details.genres,script_details.description,script_medias.script_poster,script_medias.script_mini_poster FROM script JOIN script_medias ON script.script_id = script_medias.script_id join script_details on script.script_id=script_details.script_id join users on script.scriptwriter_id=users.id  WHERE users.username=$1 AND script.main=$2',[username,true])
         let scriptId={}
         let allScripts=[]
         scripts.rows.map(script=>{
