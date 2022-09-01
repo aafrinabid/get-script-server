@@ -1092,10 +1092,39 @@ app.get('/fetchscript',async(req,res)=>{
         const genre=req.headers["genre"];
         const inDetail=req.headers["indetail"]
         const entertainment=req.headers['type']
+        const episodes=req.headers['episodes']
         console.log(req.headers['scriptid'])
         console.log(entertainment)
         // console.log(genre)
         // console.log(inDetail)
+        console.log(episodes,'all set for episodessssss')
+        if(episodes==='true'){
+        console.log(episodes,'all set for episodessssss inside')
+
+            const scriptId=req.headers['scriptid']
+            const main=await pool.query('SELECT * FROM series_episodes WHERE main_script=$1 OR child_script=$2',[scriptId,scriptId])
+            const mainScript=main.rows[0].main_script
+            const scripts = await pool.query('SELECT  script.script_id,script.featured,script_details.script_title,script_details.genres,script_medias.script_poster,episodes.* FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id join series_episodes on script_details.script_id=series_episodes.child_script or script_details.script_id=series_episodes.main_script join episodes on script_details.script_id=episodes.script_id where series_episodes.main_script=$1 and script.script_id!=$2 GROUP BY script.script_id,script_details.script_title,script_details.genres,script_medias.script_poster,episodes.script_id,episodes.episode,episodes.season  ORDER BY episodes.season,episodes.episode',[mainScript,scriptId])
+            console.log(scripts)
+            let newScriptId={}
+            let allScripts=[]
+            let genre='More Episodes on This script'
+            scripts.rows.map(script=>{
+                if(newScriptId[script.script_id]){
+                    return
+    
+                }else{
+                    newScriptId[script.script_id]=true
+                    allScripts.push(script)
+                }
+            })
+            // const result=scripts.rows
+    const result=allScripts
+            // const result=scripts.rows
+            // console.log(result)
+           return res.status(200).json({result,genre})
+        }
+        
 
         
         if(inDetail==='true'){
@@ -1122,7 +1151,9 @@ app.get('/fetchscript',async(req,res)=>{
 
         if(entertainment==0){
             console.log(type,'is zerooooo')
-            const scripts=await pool.query('SELECT  script.script_id,script.featured,script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) AND script.main=$2 ORDER BY script.featured DESC;',[genre,true]) 
+            // const scripts=await pool.query('SELECT  script.script_id,script.featured,script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) AND script.main=$2 ORDER BY script.featured DESC;',[genre,true]) 
+        const scripts=await pool.query('SELECT  script.script_id,script.featured,script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres)  AND script.main=$2 ORDER BY script.featured DESC;',[genre,true]) 
+
             let scriptId={}
             let allScripts=[]
             scripts.rows.map(script=>{
@@ -1160,7 +1191,7 @@ const result=allScripts
         res.status(200).json({result,genre})
 
     }catch(e){
-        console.log('heeeeeey')
+        console.log(e)
         res.status(400).json({message:e.message})
 
     }
@@ -1175,12 +1206,25 @@ app.get('/scriptdetails',async(req,res)=>{
         // console.log(scriptId,'*****^^^^^^*****')
         // const scriptDetail= await pool.query(' select scriptwriter.username,script_details.*,script_medias.*,script_pitch_table.* from scripts join scriptwriter on scripts.scriptwriter_id = scriptwriter.scriptwriter_id join script_details on scripts.script_id= $1 join script_medias on scripts.script_id = $2 join script_pitch_table on scripts.script_id=$3',
         // [scriptId,scriptId,scriptId])
-          const scriptDetail= await pool.query('select script.featured,users.username,users.id,script_details.*,script_medias.*,script_pitch_table.* from script join users on script.scriptwriter_id = users.id join script_details on script.script_id= script_details.script_id join script_medias on script.script_id = script_medias.script_id join script_pitch_table on script.script_id=script_pitch_table.script_id WHERE script.script_id=$1',
+          const scriptDetail= await pool.query('select script.featured,script.main,users.username,users.id,script_details.*,script_medias.*,script_pitch_table.* from script join users on script.scriptwriter_id = users.id join script_details on script.script_id= script_details.script_id join script_medias on script.script_id = script_medias.script_id join script_pitch_table on script.script_id=script_pitch_table.script_id WHERE script.script_id=$1',
         [scriptId])
+        let episodes
+        let episodeState
+        if(scriptDetail.rows[0].main){
+            episodes=await pool.query('select * from series_episodes where main_script=$1',[scriptId])
+        }else{
+            episodes=await pool.query('select * from series_episodes where child_script=$1',[scriptId])
+        }
+        if(episodes.rowCount>0){
+            episodeState=true
+
+        }else{
+            episodeState=false
+        }
         console.log('nodejsssssssssss',scriptDetail.rows[0])
         const result=scriptDetail.rows[0]
         console.log(result)
-        res.status(200).json({result})
+        res.status(200).json({result,episodeState:episodeState})
     }catch(e){
         res.status(404).json({message:e.message})
 
