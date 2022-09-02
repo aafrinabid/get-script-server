@@ -170,12 +170,22 @@ app.post('/payment/callback',(req,res)=>{
                              let result=JSON.parse(response)
                             if(result.STATUS==='TXN_SUCCESS')
                             {
-                                const update=await pool.query('UPDATE script set featured=$1 where script_id=$2',[true,result['ORDERID']])
-                                const method=await pool.query('INSERT INTO payment(script_id,method) values($1,$2)',[result['ORDERID'],'paytm'])
+                                const main=await pool.query('select * from script where script_id=$1',[result['ORDERID']])
+                                let scriptId
+                                if(main.rows[0].main){
+                                    scriptId=main.rows[0].script_id
+                                }else{
+                                   const data=await pool.query('select * from series_episodes where child_script=$1',[result['ORDERID']])
+                                   if(data.rowCount>0){
+                                    scriptId=data.rows[0].main_script
+                                   }                                    
+                                }
+                                const update=await pool.query('UPDATE script set featured=$1 where script_id=$2',[true,scriptId])
+                                const method=await pool.query('INSERT INTO payment(script_id,method) values($1,$2)',[scriptId,'paytm'])
 
 
                                 console.log(result)
-                                const inster=await pool.query('INSERT INTO paytm(txnid,banktxnid,orderid,txnamount,status,txntype,gatewayname,respcode,respmsg,bankname,mid,paymentmode,refundamt,txndate) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',[result['TXNID'],result['BANKTXNID'],result['ORDERID'],result['txnamount'],result['STATUS'],['TXNTYPE'],result['GATEWAYNAME'],result['RESPCODE'],result['RESPMSG'],result['BANKNAME'],result['MID'],result['PAYMENTMODE'],result['REFUNDAMT'],result['TXNDATE']])
+                                const inster=await pool.query('INSERT INTO paytm(txnid,banktxnid,orderid,txnamount,status,txntype,gatewayname,respcode,respmsg,bankname,mid,paymentmode,refundamt,txndate) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',[result['TXNID'],result['BANKTXNID'],scriptId,result['txnamount'],result['STATUS'],['TXNTYPE'],result['GATEWAYNAME'],result['RESPCODE'],result['RESPMSG'],result['BANKNAME'],result['MID'],result['PAYMENTMODE'],result['REFUNDAMT'],result['TXNDATE']])
 
                                 res.redirect('http://localhost:3000/Browse/0')
                                 //store in db
@@ -325,10 +335,20 @@ async(req,res)=>{
             console.log(event.data.object.id,'hmmmmmmmmmmmmmmmmmmmmmm')
             const data=event.data.object
             const orderId=data.metadata.orderId
-            const update=await pool.query('UPDATE script set featured=$1 where script_id=$2',[true,orderId])
-            const method=await pool.query('INSERT INTO payment(script_id,method) values($1,$2)',[orderId,'stripe'])
+            const main=await pool.query('select * from script where script_id=$1',[orderId])
+                                let scriptId
+                                if(main.rows[0].main){
+                                    scriptId=main.rows[0].script_id
+                                }else{
+                                   const data=await pool.query('select * from series_episodes where child_script=$1',[orderId])
+                                   if(data.rowCount>0){
+                                    scriptId=data.rows[0].main_script
+                                   }                                    
+                                }
+            const update=await pool.query('UPDATE script set featured=$1 where script_id=$2',[true,scriptId])
+            const method=await pool.query('INSERT INTO payment(script_id,method) values($1,$2)',[scriptId,'stripe'])
             const stripeInsert=await pool.query('INSERT INTO stripe (orderid,payment_intent_id,client_secret_key,email,customer_id,currency,amount,status,payment_method) values($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-            [orderId,data.id,data.client_secret,data.receipt_email,data.customer,data.currency,data.amount/100,data.status,data.payment_method]
+            [scriptId,data.id,data.client_secret,data.receipt_email,data.customer,data.currency,data.amount/100,data.status,data.payment_method]
             )
     
         }
@@ -336,9 +356,19 @@ async(req,res)=>{
             const data=event.data.object
             // console.log(data)
             const orderId=data.metadata.orderId
+            const main=await pool.query('select * from script where script_id=$1',[orderId])
+            let scriptId
+            if(main.rows[0].main){
+                scriptId=main.rows[0].script_id
+            }else{
+               const data=await pool.query('select * from series_episodes where child_script=$1',[orderId])
+               if(data.rowCount>0){
+                scriptId=data.rows[0].main_script
+               }                                    
+            }
             console.log(event.data.object.payment_intent,'testing')
             const stripeUpdate=await pool.query('INSERT INTO stripe_charges (orderid,charge_id,paid,txnid,receipt_url) VALUES ($1,$2,$3,$4,$5)',
-            [orderId,data.id,data.paid,data.balance_transaction,data.receipt_url])
+            [scriptId,data.id,data.paid,data.balance_transaction,data.receipt_url])
             
             console.log(stripeUpdate)
             
@@ -990,11 +1020,15 @@ app.post('/scriptupload',verifyJwt,async(req,res)=>{
     
         await pool.query('INSERT INTO script_medias(script_id,script_pdf_url,script_poster,script_mini_poster,script_video,is_deleted) VALUES($1,$2,$3,$4,$5,$6)',
         [scriptId,data['pdf'],data['poster'],data['miniPoster'],data['video'],false])
+        let paid
         if(mainScript!==false){
             console.log(mainScript,'pleasssse')
             await pool.query('INSERT INTO series_episodes(main_script,child_script) VALUES ($1,$2)',[mainScript,scriptId])
+            const data= await pool.query('SELECT * FROM script where script.script_id=$1',[mainScript])
+            paid=data.rows[0].featured
+            
         }
-         res.status(200).json({uploaded:true,scriptId})
+         res.status(200).json({uploaded:true,scriptId,paid})
     console.log('updated the script upload')
     }catch(err){
         console.log(err)
@@ -1016,7 +1050,7 @@ if(mainScript.rowCount>0){
 }
 else{
     console.log(scriptId,typeof season,episode)
-    const main=await pool.query('select * from series_episodes where child_script=$1',[scriptId])
+    const main=await pool.query('select * from series_episodes where child_script=$1 or main_script=$2',[scriptId,scriptId])
     if(main.rowCount>0){
         const mainScript=main.rows[0].main_script
         const script= await pool.query('select * from episodes  WHERE episodes.script_id=$1 and episodes.season=$2 and episodes.episode= $3',[mainScript,season,episode] )
@@ -1024,6 +1058,11 @@ else{
             console.log(script.rows)
             return res.json({notFound:false})
         }else{
+            const script=await pool.query('select * from episodes  JOIN series_episodes  ON episodes.script_id=series_episodes.child_script  WHERE series_episodes.main_script=$1 and episodes.season=$2 and episodes.episode=$3',[mainScript,season,episode])
+            if(script.rowCount>0){
+                console.log(script.rows[0])
+                return res.json({notFound:false})
+            }else
             return res.json({notFound:true})
         }
     
