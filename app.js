@@ -1218,7 +1218,15 @@ app.get('/scriptdetails',async(req,res)=>{
             episode=data.rows[0].episode
             season=data.rows[0].season
 
-        }else{
+        }if(scriptDetail.rows[0].entertainment!=='MOVIE'){
+            const data=await pool.query('select * from episodes where script_id=$1',[scriptId])
+            episode=data.rows[0].episode
+            season=data.rows[0].season
+            episodeState=true
+
+
+        }
+            else{
             episodeState=false
             episode=false
             season=false
