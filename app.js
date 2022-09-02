@@ -1016,12 +1016,20 @@ if(mainScript.rowCount>0){
 }
 else{
     console.log(scriptId,typeof season,episode)
-    const script= await pool.query('select * from episodes  JOIN series_episodes  ON episodes.script_id=series_episodes.child_script WHERE series_episodes.main_script=$1 and episodes.season=$2 and episodes.episode= $3',[scriptId,season,episode] )
-    if(script.rowCount>0){
-        console.log(script.rows)
-        return res.json({notFound:false})
+    const main=await pool.query('select * from series_episodes where child_script=$1',[scriptId])
+    if(main.rowCount>0){
+        const mainScript=main.rows[0].main_script
+        const script= await pool.query('select * from episodes  WHERE episodes.script_id=$1 and episodes.season=$2 and episodes.episode= $3',[mainScript,season,episode] )
+        if(script.rowCount>0){
+            console.log(script.rows)
+            return res.json({notFound:false})
+        }else{
+            return res.json({notFound:true})
+        }
+    
     }else{
         return res.json({notFound:true})
+
     }
 }
     }catch(e){
@@ -1146,8 +1154,20 @@ app.get('/scriptdetails',async(req,res)=>{
         const scriptId=req.headers['scriptid']
           const scriptDetail= await pool.query('select script.featured,script.main,users.username,users.id,script_details.*,script_medias.*,script_pitch_table.* from script join users on script.scriptwriter_id = users.id join script_details on script.script_id= script_details.script_id join script_medias on script.script_id = script_medias.script_id join script_pitch_table on script.script_id=script_pitch_table.script_id WHERE script.script_id=$1',
         [scriptId])
+        
         let episodes
         let episodeState
+        let episode
+        let season
+        let featured=scriptDetail.rows[0].featured
+        if(scriptDetail.rows[0].main===false){
+            const main=await pool.query('select * from series_episodes where child_script=$1',[scriptId])
+            if(main.rowCount>0){
+                const mainScript=main.rows[0].main_script
+                const data=await pool.query('select script.featured from script join series_episodes on script.script_id=series_episodes.main_script where series_episodes.main_script=$1 GROUP BY series_episodes.main_script,script.featured',[mainScript])      
+                featured=data.rows[0].featured    
+            }
+        }
         if(scriptDetail.rows[0].main){
             episodes=await pool.query('select * from series_episodes where main_script=$1',[scriptId])
         }else{
@@ -1155,14 +1175,20 @@ app.get('/scriptdetails',async(req,res)=>{
         }
         if(episodes.rowCount>0){
             episodeState=true
+            const data=await pool.query('select * from episodes where script_id=$1',[scriptId])
+            episode=data.rows[0].episode
+            season=data.rows[0].season
 
         }else{
             episodeState=false
+            episode=false
+            season=false
+
         }
         console.log('nodejsssssssssss',scriptDetail.rows[0])
         const result=scriptDetail.rows[0]
-        console.log(result)
-        res.status(200).json({result,episodeState:episodeState})
+        console.log(result,featured)
+        res.status(200).json({result,episodeState:episodeState,episode,season,featured})
     }catch(e){
         res.status(404).json({message:e.message})
 
