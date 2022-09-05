@@ -948,8 +948,9 @@ if(name==='script'){
 
 app.post('/nextScriptEpisode',async(req,res)=>{
     try{
-        const {id}=req.body
-        const script= await pool.query('SELECT * from script where script_id=$1 AND main=$2',[id,true])
+        const {id,addEpisodeState,updateState}=req.body
+        if(addEpisodeState){
+            const script= await pool.query('SELECT * from script where script_id=$1 AND main=$2',[id,true])
         let mainScript
         if(script.rowCount>0){
  mainScript=script.rows[0].script_id
@@ -974,7 +975,47 @@ app.post('/nextScriptEpisode',async(req,res)=>{
             character:scriptDetail.rows[0].character
             }
         }
-        res.json({result,featured:scriptDetail.rows[0].featured})
+        res.json({result,featured:scriptDetail.rows[0].featured,episodeState:true}) 
+        }
+        if(updateState){
+            const script= await pool.query('SELECT * from script where script_id=$1 AND main=$2',[id,true])
+            let mainScript
+            if(script.rowCount>0){
+     mainScript=script.rows[0].script_id
+            }else{
+                const script= await pool.query('SELECT * from series_episodes where child_script=$1',[id])
+                mainScript=script.rows[0].main_script
+            }
+            const data=await pool.query('SELECT * FROM script where script_id=$1',[mainScript])
+    
+            const scriptDetail= await pool.query('select users.id,script_details.*,script_pitch_table.*,script_medias.* from script join users on script.scriptwriter_id = users.id join script_details on script.script_id= script_details.script_id  join script_pitch_table on script.script_id=script_pitch_table.script_id join script_medias on script.script_id=script_medias.script_id WHERE script.script_id=$1',[id])
+            const result={
+                titleName : scriptDetail.rows[0].script_title,
+               entertainmentType:nextTypeHandler(scriptDetail.rows[0].entertainment,'entertainment'), 
+               scriptType:nextTypeHandler(scriptDetail.rows[0].script_type,'script'),
+               genres:scriptDetail.rows[0].genres,
+               description:scriptDetail.rows[0].description,
+                table:{
+                theOrigin:scriptDetail.rows[0].the_origin,
+                humanHook:scriptDetail.rows[0].human_hook,
+                Desires:scriptDetail.rows[0].desires,
+                obstacles:scriptDetail.rows[0].obstacles,
+                highlights:scriptDetail.rows[0].highlights,
+                openRoad:scriptDetail.rows[0].open_road,
+                character:scriptDetail.rows[0].character
+                },
+              
+
+            }
+            const media={
+                pdf:scriptDetail.rows[0].script_pdf_url,
+                poster:scriptDetail.rows[0].script_poster,
+                miniPoster:scriptDetail.rows[0].script_mini_poster,
+                
+            }
+            res.json({result,featured:data.rows[0].featured,episodeState:false,media})
+        }
+       
 
     }catch(e){
         console.log(e)
