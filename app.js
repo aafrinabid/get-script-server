@@ -15,7 +15,7 @@ const messageModel = require('./model/messageModel');
 const socket=require('socket.io');
 const PaytmChecksum=require('./PaytmChecksum')
 const https=require('https');
-const { json } = require('express');
+const { json, query } = require('express');
 const stripe= require('stripe')(process.env.stripe_secret_key)
 const sentEmail= require('./utils/sendEmail')
 const morgan=require('morgan');
@@ -1028,6 +1028,7 @@ app.post('/scriptupload',verifyJwt,async(req,res)=>{
         console.log('enterd',req.userId)
         const id=req.userId
         const mainScript=req.body.mainScriptId;
+        const updateScriptId=req.body.scriptId;
         const episode=req.headers["episode"];
         const season=req.headers["season"];
         console.log(mainScript,'scriptId i needed')
@@ -1035,9 +1036,20 @@ app.post('/scriptupload',verifyJwt,async(req,res)=>{
 
         const data=req.body
         console.log(data)
+       
         const entertainmentType=typeHandler(data.entertainmentType,'entertainment')
         const scriptType=typeHandler(data.scriptType,'script')
         console.log(entertainmentType,scriptType)
+        if(updateScriptId!==false){
+           const updateScriptDetails= await pool.query('UPDATE script_details SET script_title=$1,entertainment=$2,script_type=$3,description=$4,genres=$5 where script_id=$6',[data.titleName,entertainmentType,scriptType,data.description,data.genres,updateScriptId]) 
+           const upDateTable =await pool.query('UPDATE script_pitch_table SET the_origin=$1,human_hook=$2,character=$3,desires=$4,obstacles=$5,highlights=$6,open_road=$7 where script_id=$8',[data['table']['theOrigin'],data['table']['humanHook'],data['table']['character'],data['table']['Desires'],data['table']['obstacles'],data['table']['highlights'],data['table']['openRoad'],updateScriptId])
+           const updateMedias=await pool.query('UPDATE script_medias SET script_pdf_url=$1,script_poster=$2,script_mini_poster=$3,script_video=$4 where script_id=$5',
+           [data['pdf'],data['poster'],data['miniPoster'],data['video'],updateScriptId])
+           console.log('uploadeddddd')
+
+       return  res.status(200).json({uploaded:true,scriptId:id,paid:false,updated:true})
+
+        }
         const script=await pool.query('INSERT INTO script(scriptwriter_id,featured,is_deleted,main) VALUES($1,$2,$3,$4) RETURNING script_id',
         [id,false,false,mainScript===false?true:false])
         console.log(script)
@@ -1069,7 +1081,7 @@ app.post('/scriptupload',verifyJwt,async(req,res)=>{
             paid=data.rows[0].featured
             
         }
-         res.status(200).json({uploaded:true,scriptId,paid})
+         res.status(200).json({uploaded:true,scriptId,paid,updated:false})
     console.log('updated the script upload')
     }catch(err){
         console.log(err)
@@ -1077,6 +1089,7 @@ app.post('/scriptupload',verifyJwt,async(req,res)=>{
     }
         
 })
+
 
 app.post('/episodeCheck',async(req,res)=>{
     try{
@@ -1132,24 +1145,27 @@ app.get('/fetchscript',async(req,res)=>{
 
             const scriptId=req.headers['scriptid']
             const main=await pool.query('SELECT * FROM series_episodes WHERE main_script=$1 OR child_script=$2',[scriptId,scriptId])
-            const mainScript=main.rows[0].main_script
-            const scripts = await pool.query('SELECT  script.script_id,script.featured,script_details.script_title,script_details.genres,script_medias.script_poster,episodes.* FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id join series_episodes on script_details.script_id=series_episodes.child_script or script_details.script_id=series_episodes.main_script join episodes on script_details.script_id=episodes.script_id where series_episodes.main_script=$1 and script.script_id!=$2 GROUP BY script.script_id,script_details.script_title,script_details.genres,script_medias.script_poster,episodes.script_id,episodes.episode,episodes.season  ORDER BY episodes.season,episodes.episode',[mainScript,scriptId])
-            console.log(scripts)
-            let newScriptId={}
-            let allScripts=[]
-            let genre='More Episodes on This script'
-            scripts.rows.map(script=>{
-                if(newScriptId[script.script_id]){
-                    return
-    
-                }else{
-                    newScriptId[script.script_id]=true
-                    allScripts.push(script)
-                }
-            })
-    const result=allScripts
-           return res.status(200).json({result,genre})
-        }
+            if(main.rowCount>0){
+                const mainScript=main.rows[0].main_script
+                const scripts = await pool.query('SELECT  script.script_id,script.featured,script_details.script_title,script_details.genres,script_medias.script_poster,episodes.* FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id join series_episodes on script_details.script_id=series_episodes.child_script or script_details.script_id=series_episodes.main_script join episodes on script_details.script_id=episodes.script_id where series_episodes.main_script=$1 and script.script_id!=$2 GROUP BY script.script_id,script_details.script_title,script_details.genres,script_medias.script_poster,episodes.script_id,episodes.episode,episodes.season  ORDER BY episodes.season,episodes.episode',[mainScript,scriptId])
+                console.log(scripts)
+                let newScriptId={}
+                let allScripts=[]
+                let genre='More Episodes on This script'
+                scripts.rows.map(script=>{
+                    if(newScriptId[script.script_id]){
+                        return
+        
+                    }else{
+                        newScriptId[script.script_id]=true
+                        allScripts.push(script)
+                    }
+                })
+        const result=allScripts
+               return res.status(200).json({result,genre})
+            }
+            }
+          
         
 
         
