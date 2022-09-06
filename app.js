@@ -15,7 +15,7 @@ const messageModel = require('./model/messageModel');
 const socket=require('socket.io');
 const PaytmChecksum=require('./PaytmChecksum')
 const https=require('https');
-const { json } = require('express');
+const { json, query } = require('express');
 const stripe= require('stripe')(process.env.stripe_secret_key)
 const sentEmail= require('./utils/sendEmail')
 const morgan=require('morgan');
@@ -46,7 +46,6 @@ const verifyJwt=(req,res,next)=>{
 
 }
 
-// const { request } = require('http');
 //paytm payment
 app.get('/isAuthPayment',verifyJwt,async(req,res)=>{
     const userId=req.userId
@@ -171,30 +170,22 @@ app.post('/payment/callback',(req,res)=>{
                              let result=JSON.parse(response)
                             if(result.STATUS==='TXN_SUCCESS')
                             {
-                                const update=await pool.query('UPDATE script set featured=$1 where script_id=$2',[true,result['ORDERID']])
-                                const method=await pool.query('INSERT INTO payment(script_id,method) values($1,$2)',[result['ORDERID'],'paytm'])
+                                const main=await pool.query('select * from script where script_id=$1',[result['ORDERID']])
+                                let scriptId
+                                if(main.rows[0].main){
+                                    scriptId=main.rows[0].script_id
+                                }else{
+                                   const data=await pool.query('select * from series_episodes where child_script=$1',[result['ORDERID']])
+                                   if(data.rowCount>0){
+                                    scriptId=data.rows[0].main_script
+                                   }                                    
+                                }
+                                const update=await pool.query('UPDATE script set featured=$1 where script_id=$2',[true,scriptId])
+                                const method=await pool.query('INSERT INTO payment(script_id,method) values($1,$2)',[scriptId,'paytm'])
 
 
                                 console.log(result)
-                                const inster=await pool.query('INSERT INTO paytm(txnid,banktxnid,orderid,txnamount,status,txntype,gatewayname,respcode,respmsg,bankname,mid,paymentmode,refundamt,txndate) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',[result['TXNID'],result['BANKTXNID'],result['ORDERID'],result['txnamount'],result['STATUS'],['TXNTYPE'],result['GATEWAYNAME'],result['RESPCODE'],result['RESPMSG'],result['BANKNAME'],result['MID'],result['PAYMENTMODE'],result['REFUNDAMT'],result['TXNDATE']])
-
-                                // const transfer=Object.keys(result)
-                                // let count=0
-                                // transfer.forEach(async(list)=>{
-                                //     console.log(list)
-                                //     if(count===0){
-                                //         console.log(list[count],result[transfer[count]],'insterting')
-                                //         const insert=await pool.query('INSERT INTO paytm($1) values($2)',[list[count].toLocaleLowerCase(),result[transfer[count]]])
-                                //         count++
-                                //     }else{
-                                //      const insert=await pool.query('UPDATE paytm set $1=$2 where ',[list[count].toLocaleLowerCase(),result[transfer[count]]])
-                                //      count++
-                                //     }
-                                // })
-                                
-
-                                // const insert=await res
-
+                                const inster=await pool.query('INSERT INTO paytm(txnid,banktxnid,orderid,txnamount,status,txntype,gatewayname,respcode,respmsg,bankname,mid,paymentmode,refundamt,txndate) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',[result['TXNID'],result['BANKTXNID'],scriptId,result['txnamount'],result['STATUS'],['TXNTYPE'],result['GATEWAYNAME'],result['RESPCODE'],result['RESPMSG'],result['BANKNAME'],result['MID'],result['PAYMENTMODE'],result['REFUNDAMT'],result['TXNDATE']])
 
                                 res.redirect('http://localhost:3000/Browse/0')
                                 //store in db
@@ -290,7 +281,6 @@ app.post('/paymentstripe',express.json(),express.urlencoded({extended:true}),asy
                     orderId:product.id
                 }
 
-                // orderId:product.id,
             },{idempotencyKey})
             console.log(paymentIntent.client_secret)
             
@@ -307,20 +297,6 @@ app.post('/paymentstripe',express.json(),express.urlencoded({extended:true}),asy
     }
     
     
-//     .then(customer=>{
-//         stripe.paymentIntents.create({
-//             amount:product.price * 100,
-//             currency:'inr',
-//             customer:customer.id,
-//             receipt_email:token.email,
-//             // orderId:product.id,
-//         },{idempotencyKey})
-//     })
-//     .then(result=>{
-//         console.log(result,'resukts comming')
-//         res.status(200).json(result)
-//     })
-//     .catch(err=>console.log(err))
 })
 
 
@@ -359,10 +335,20 @@ async(req,res)=>{
             console.log(event.data.object.id,'hmmmmmmmmmmmmmmmmmmmmmm')
             const data=event.data.object
             const orderId=data.metadata.orderId
-            const update=await pool.query('UPDATE script set featured=$1 where script_id=$2',[true,orderId])
-            const method=await pool.query('INSERT INTO payment(script_id,method) values($1,$2)',[orderId,'stripe'])
+            const main=await pool.query('select * from script where script_id=$1',[orderId])
+                                let scriptId
+                                if(main.rows[0].main){
+                                    scriptId=main.rows[0].script_id
+                                }else{
+                                   const data=await pool.query('select * from series_episodes where child_script=$1',[orderId])
+                                   if(data.rowCount>0){
+                                    scriptId=data.rows[0].main_script
+                                   }                                    
+                                }
+            const update=await pool.query('UPDATE script set featured=$1 where script_id=$2',[true,scriptId])
+            const method=await pool.query('INSERT INTO payment(script_id,method) values($1,$2)',[scriptId,'stripe'])
             const stripeInsert=await pool.query('INSERT INTO stripe (orderid,payment_intent_id,client_secret_key,email,customer_id,currency,amount,status,payment_method) values($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-            [orderId,data.id,data.client_secret,data.receipt_email,data.customer,data.currency,data.amount/100,data.status,data.payment_method]
+            [scriptId,data.id,data.client_secret,data.receipt_email,data.customer,data.currency,data.amount/100,data.status,data.payment_method]
             )
     
         }
@@ -370,9 +356,19 @@ async(req,res)=>{
             const data=event.data.object
             // console.log(data)
             const orderId=data.metadata.orderId
+            const main=await pool.query('select * from script where script_id=$1',[orderId])
+            let scriptId
+            if(main.rows[0].main){
+                scriptId=main.rows[0].script_id
+            }else{
+               const data=await pool.query('select * from series_episodes where child_script=$1',[orderId])
+               if(data.rowCount>0){
+                scriptId=data.rows[0].main_script
+               }                                    
+            }
             console.log(event.data.object.payment_intent,'testing')
             const stripeUpdate=await pool.query('INSERT INTO stripe_charges (orderid,charge_id,paid,txnid,receipt_url) VALUES ($1,$2,$3,$4,$5)',
-            [orderId,data.id,data.paid,data.balance_transaction,data.receipt_url])
+            [scriptId,data.id,data.paid,data.balance_transaction,data.receipt_url])
             
             console.log(stripeUpdate)
             
@@ -396,11 +392,6 @@ console.log(e)
 app.use(express.json())
 app.use(express.urlencoded({extended:true}))
 
-// const corsOptions ={
-//     origin:'*', 
-//     credentials:true,            //access-control-allow-credentials:true
-//     optionSuccessStatus:200,
-//  }
 mongoose.connect(process.env.MONGO_URL,{
     useNewUrlParser:true,
     useUnifiedTopology:true,
@@ -424,14 +415,6 @@ const upload=multer({
 
 
 
-// async function hashPassword(p){
-//     const password=await bcrypt.hash(p,10);
-//     return password;
-// }
-
-// const compPassword=async(p)=>{
-//     const p
-// }
 
 
 app.get('/getId',verifyJwt,(req,res)=>{
@@ -447,7 +430,6 @@ app.post('/getUsername',async(req,res)=>{
         const id=req.body.id
         console.log(req.body)
         console.log(id,'checking')
-        // const username=await pool.query('select * from users where id=$1,'[id])
         const username= await pool.query('select username from users where id=$1',[id])
         console.log(username,'fetched the username you are looking for')
         res.json({username:username.rows[0].username})
@@ -508,7 +490,6 @@ app.get('/isAuth',verifyJwt,async(req,res,next)=>{
         }else({auth:false,message:'not authorised yet',role,status})
 
     }
-//    console.log(result)
 
     }catch(e){
         console.log('umborse');
@@ -534,7 +515,6 @@ app.post('/Oauth/google',async(req,res)=>{
          }
             if(user.rowCount>0 && user.rows[0].type!=='scriptwriter'){
              console.log('heeeeeeesh')
-             // return new Error('You are already registered as screenwriter, please use other mail address')
              return res.json({message:'You are already registered as producer, please use other mail address',auth:false})
  
          }
@@ -563,7 +543,6 @@ app.post('/Oauth/google',async(req,res)=>{
          }
          if(user.rows[0].type!=='producer'){
              console.log('heeeeeeesh')
-             // return new Error('You are already registered as screenwriter, please use other mail address')
              return res.json({message:'You are already registered as screenwriter, please use other mail address',auth:false})
  
          }
@@ -595,10 +574,6 @@ app.post('/registerProducer',async(req,res)=>{
     try{
         const {username,password,email,firstName,lastName}=req.body;
         console.log(password,username)
-        // if(username='aafrin'){
-        //     console.log('not happening in usernaem')
-        //     res.status(400).json({auth:false,message:'username already exist'})
-        // }
         const user=await pool.query('SELECT * FROM users WHERE username=$1',[username]);
         const useremail= await pool.query('SELECT * FROM users WHERE email=$1',[email])
         console.log(user)
@@ -649,7 +624,6 @@ app.post('/loginProducer',async(req,res)=>{
                     expiresIn:3000,
                 })
                 if(user.rows[0].status==='pending'){
-                    // throw new Error('Awaiting confirmation from the presidernt')
                     res.status(200).json({token:token,status,auth:true,role})
                 }
                 if(user.rows[0].status==='approved'){
@@ -720,7 +694,6 @@ app.post('/loginScriptwriter',async(req,res)=>{
                     expiresIn:3000,
                 })
                 if(user.rows[0].status==='blocked'){
-                    // throw new Error('Awaiting confirmation from the presidernt')
                     res.status(200).json({token:token,status,auth:false,role})
                 }
                 if(user.rows[0].status==='approved'){
@@ -975,8 +948,9 @@ if(name==='script'){
 
 app.post('/nextScriptEpisode',async(req,res)=>{
     try{
-        const {id}=req.body
-        const script= await pool.query('SELECT * from script where script_id=$1 AND main=$2',[id,true])
+        const {id,addEpisodeState,updateState}=req.body
+        if(addEpisodeState){
+            const script= await pool.query('SELECT * from script where script_id=$1 AND main=$2',[id,true])
         let mainScript
         if(script.rowCount>0){
  mainScript=script.rows[0].script_id
@@ -1001,7 +975,47 @@ app.post('/nextScriptEpisode',async(req,res)=>{
             character:scriptDetail.rows[0].character
             }
         }
-        res.json({result,featured:scriptDetail.rows[0].featured})
+        res.json({result,featured:scriptDetail.rows[0].featured,episodeState:true}) 
+        }
+        if(updateState){
+            const script= await pool.query('SELECT * from script where script_id=$1 AND main=$2',[id,true])
+            let mainScript
+            if(script.rowCount>0){
+     mainScript=script.rows[0].script_id
+            }else{
+                const script= await pool.query('SELECT * from series_episodes where child_script=$1',[id])
+                mainScript=script.rows[0].main_script
+            }
+            const data=await pool.query('SELECT * FROM script where script_id=$1',[mainScript])
+    
+            const scriptDetail= await pool.query('select users.id,script_details.*,script_pitch_table.*,script_medias.* from script join users on script.scriptwriter_id = users.id join script_details on script.script_id= script_details.script_id  join script_pitch_table on script.script_id=script_pitch_table.script_id join script_medias on script.script_id=script_medias.script_id WHERE script.script_id=$1',[id])
+            const result={
+                titleName : scriptDetail.rows[0].script_title,
+               entertainmentType:nextTypeHandler(scriptDetail.rows[0].entertainment,'entertainment'), 
+               scriptType:nextTypeHandler(scriptDetail.rows[0].script_type,'script'),
+               genres:scriptDetail.rows[0].genres,
+               description:scriptDetail.rows[0].description,
+                table:{
+                theOrigin:scriptDetail.rows[0].the_origin,
+                humanHook:scriptDetail.rows[0].human_hook,
+                Desires:scriptDetail.rows[0].desires,
+                obstacles:scriptDetail.rows[0].obstacles,
+                highlights:scriptDetail.rows[0].highlights,
+                openRoad:scriptDetail.rows[0].open_road,
+                character:scriptDetail.rows[0].character
+                },
+              
+
+            }
+            const media={
+                pdf:scriptDetail.rows[0].script_pdf_url,
+                poster:scriptDetail.rows[0].script_poster,
+                miniPoster:scriptDetail.rows[0].script_mini_poster,
+                
+            }
+            res.json({result,featured:data.rows[0].featured,episodeState:false,media})
+        }
+       
 
     }catch(e){
         console.log(e)
@@ -1014,6 +1028,7 @@ app.post('/scriptupload',verifyJwt,async(req,res)=>{
         console.log('enterd',req.userId)
         const id=req.userId
         const mainScript=req.body.mainScriptId;
+        const updateScriptId=req.body.scriptId;
         const episode=req.headers["episode"];
         const season=req.headers["season"];
         console.log(mainScript,'scriptId i needed')
@@ -1021,9 +1036,20 @@ app.post('/scriptupload',verifyJwt,async(req,res)=>{
 
         const data=req.body
         console.log(data)
+       
         const entertainmentType=typeHandler(data.entertainmentType,'entertainment')
         const scriptType=typeHandler(data.scriptType,'script')
         console.log(entertainmentType,scriptType)
+        if(updateScriptId!==false){
+           const updateScriptDetails= await pool.query('UPDATE script_details SET script_title=$1,entertainment=$2,script_type=$3,description=$4,genres=$5 where script_id=$6',[data.titleName,entertainmentType,scriptType,data.description,data.genres,updateScriptId]) 
+           const upDateTable =await pool.query('UPDATE script_pitch_table SET the_origin=$1,human_hook=$2,character=$3,desires=$4,obstacles=$5,highlights=$6,open_road=$7 where script_id=$8',[data['table']['theOrigin'],data['table']['humanHook'],data['table']['character'],data['table']['Desires'],data['table']['obstacles'],data['table']['highlights'],data['table']['openRoad'],updateScriptId])
+           const updateMedias=await pool.query('UPDATE script_medias SET script_pdf_url=$1,script_poster=$2,script_mini_poster=$3,script_video=$4 where script_id=$5',
+           [data['pdf'],data['poster'],data['miniPoster'],data['video'],updateScriptId])
+           console.log('uploadeddddd')
+
+       return  res.status(200).json({uploaded:true,scriptId:id,paid:false,updated:true})
+
+        }
         const script=await pool.query('INSERT INTO script(scriptwriter_id,featured,is_deleted,main) VALUES($1,$2,$3,$4) RETURNING script_id',
         [id,false,false,mainScript===false?true:false])
         console.log(script)
@@ -1047,11 +1073,15 @@ app.post('/scriptupload',verifyJwt,async(req,res)=>{
     
         await pool.query('INSERT INTO script_medias(script_id,script_pdf_url,script_poster,script_mini_poster,script_video,is_deleted) VALUES($1,$2,$3,$4,$5,$6)',
         [scriptId,data['pdf'],data['poster'],data['miniPoster'],data['video'],false])
+        let paid
         if(mainScript!==false){
             console.log(mainScript,'pleasssse')
             await pool.query('INSERT INTO series_episodes(main_script,child_script) VALUES ($1,$2)',[mainScript,scriptId])
+            const data= await pool.query('SELECT * FROM script where script.script_id=$1',[mainScript])
+            paid=data.rows[0].featured
+            
         }
-         res.status(200).json({uploaded:true,scriptId})
+         res.status(200).json({uploaded:true,scriptId,paid,updated:false})
     console.log('updated the script upload')
     }catch(err){
         console.log(err)
@@ -1059,6 +1089,7 @@ app.post('/scriptupload',verifyJwt,async(req,res)=>{
     }
         
 })
+
 
 app.post('/episodeCheck',async(req,res)=>{
     try{
@@ -1073,12 +1104,25 @@ if(mainScript.rowCount>0){
 }
 else{
     console.log(scriptId,typeof season,episode)
-    const script= await pool.query('select * from episodes  JOIN series_episodes  ON episodes.script_id=series_episodes.child_script WHERE series_episodes.main_script=$1 and episodes.season=$2 and episodes.episode= $3',[scriptId,season,episode] )
-    if(script.rowCount>0){
-        console.log(script.rows)
-        return res.json({notFound:false})
+    const main=await pool.query('select * from series_episodes where child_script=$1 or main_script=$2',[scriptId,scriptId])
+    if(main.rowCount>0){
+        const mainScript=main.rows[0].main_script
+        const script= await pool.query('select * from episodes  WHERE episodes.script_id=$1 and episodes.season=$2 and episodes.episode= $3',[mainScript,season,episode] )
+        if(script.rowCount>0){
+            console.log(script.rows)
+            return res.json({notFound:false})
+        }else{
+            const script=await pool.query('select * from episodes  JOIN series_episodes  ON episodes.script_id=series_episodes.child_script  WHERE series_episodes.main_script=$1 and episodes.season=$2 and episodes.episode=$3',[mainScript,season,episode])
+            if(script.rowCount>0){
+                console.log(script.rows[0])
+                return res.json({notFound:false})
+            }else
+            return res.json({notFound:true})
+        }
+    
     }else{
         return res.json({notFound:true})
+
     }
 }
     }catch(e){
@@ -1095,35 +1139,33 @@ app.get('/fetchscript',async(req,res)=>{
         const episodes=req.headers['episodes']
         console.log(req.headers['scriptid'])
         console.log(entertainment)
-        // console.log(genre)
-        // console.log(inDetail)
         console.log(episodes,'all set for episodessssss')
         if(episodes==='true'){
         console.log(episodes,'all set for episodessssss inside')
 
             const scriptId=req.headers['scriptid']
             const main=await pool.query('SELECT * FROM series_episodes WHERE main_script=$1 OR child_script=$2',[scriptId,scriptId])
-            const mainScript=main.rows[0].main_script
-            const scripts = await pool.query('SELECT  script.script_id,script.featured,script_details.script_title,script_details.genres,script_medias.script_poster,episodes.* FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id join series_episodes on script_details.script_id=series_episodes.child_script or script_details.script_id=series_episodes.main_script join episodes on script_details.script_id=episodes.script_id where series_episodes.main_script=$1 and script.script_id!=$2 GROUP BY script.script_id,script_details.script_title,script_details.genres,script_medias.script_poster,episodes.script_id,episodes.episode,episodes.season  ORDER BY episodes.season,episodes.episode',[mainScript,scriptId])
-            console.log(scripts)
-            let newScriptId={}
-            let allScripts=[]
-            let genre='More Episodes on This script'
-            scripts.rows.map(script=>{
-                if(newScriptId[script.script_id]){
-                    return
-    
-                }else{
-                    newScriptId[script.script_id]=true
-                    allScripts.push(script)
-                }
-            })
-            // const result=scripts.rows
-    const result=allScripts
-            // const result=scripts.rows
-            // console.log(result)
-           return res.status(200).json({result,genre})
-        }
+            if(main.rowCount>0){
+                const mainScript=main.rows[0].main_script
+                const scripts = await pool.query('SELECT  script.script_id,script.featured,script_details.script_title,script_details.genres,script_medias.script_poster,episodes.* FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id join series_episodes on script_details.script_id=series_episodes.child_script or script_details.script_id=series_episodes.main_script join episodes on script_details.script_id=episodes.script_id where series_episodes.main_script=$1 and script.script_id!=$2 GROUP BY script.script_id,script_details.script_title,script_details.genres,script_medias.script_poster,episodes.script_id,episodes.episode,episodes.season  ORDER BY episodes.season,episodes.episode',[mainScript,scriptId])
+                console.log(scripts)
+                let newScriptId={}
+                let allScripts=[]
+                let genre='More Episodes on This script'
+                scripts.rows.map(script=>{
+                    if(newScriptId[script.script_id]){
+                        return
+        
+                    }else{
+                        newScriptId[script.script_id]=true
+                        allScripts.push(script)
+                    }
+                })
+        const result=allScripts
+               return res.status(200).json({result,genre})
+            }
+            }
+          
         
 
         
@@ -1153,16 +1195,12 @@ app.get('/fetchscript',async(req,res)=>{
                     allScripts.push(script)
                 }
             })
-            // const result=scripts.rows
     const result=allScripts
-            // const result=scripts.rows
-            // console.log(result)
            return res.status(200).json({result,genre})
         }
 
         if(entertainment==0){
             console.log(type,'is zerooooo')
-            // const scripts=await pool.query('SELECT  script.script_id,script.featured,script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres) AND script.main=$2 ORDER BY script.featured DESC;',[genre,true]) 
         const scripts=await pool.query('SELECT  script.script_id,script.featured,script_details.script_id,script_details.script_title,script_details.genres,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id join script on script_details.script_id=script.script_id WHERE $1= ANY(script_details.genres)  AND script.main=$2 ORDER BY script.featured DESC;',[genre,true]) 
 
             let scriptId={}
@@ -1176,9 +1214,7 @@ app.get('/fetchscript',async(req,res)=>{
                     allScripts.push(script)
                 }
             })
-            // const result=scripts.rows
     const result=allScripts
-            // console.log(genre,result,'rooooooooooows')
           return res.status(200).json({result,genre})
             
 
@@ -1196,9 +1232,7 @@ app.get('/fetchscript',async(req,res)=>{
                 allScripts.push(script)
             }
         })
-        // const result=scripts.rows
 const result=allScripts
-        // console.log(genre,result,'rooooooooooows')
         res.status(200).json({result,genre})
 
     }catch(e){
@@ -1214,13 +1248,22 @@ const result=allScripts
 app.get('/scriptdetails',async(req,res)=>{
     try{
         const scriptId=req.headers['scriptid']
-        // console.log(scriptId,'*****^^^^^^*****')
-        // const scriptDetail= await pool.query(' select scriptwriter.username,script_details.*,script_medias.*,script_pitch_table.* from scripts join scriptwriter on scripts.scriptwriter_id = scriptwriter.scriptwriter_id join script_details on scripts.script_id= $1 join script_medias on scripts.script_id = $2 join script_pitch_table on scripts.script_id=$3',
-        // [scriptId,scriptId,scriptId])
           const scriptDetail= await pool.query('select script.featured,script.main,users.username,users.id,script_details.*,script_medias.*,script_pitch_table.* from script join users on script.scriptwriter_id = users.id join script_details on script.script_id= script_details.script_id join script_medias on script.script_id = script_medias.script_id join script_pitch_table on script.script_id=script_pitch_table.script_id WHERE script.script_id=$1',
         [scriptId])
+        
         let episodes
         let episodeState
+        let episode
+        let season
+        let featured=scriptDetail.rows[0].featured
+        if(scriptDetail.rows[0].main===false){
+            const main=await pool.query('select * from series_episodes where child_script=$1',[scriptId])
+            if(main.rowCount>0){
+                const mainScript=main.rows[0].main_script
+                const data=await pool.query('select script.featured from script join series_episodes on script.script_id=series_episodes.main_script where series_episodes.main_script=$1 GROUP BY series_episodes.main_script,script.featured',[mainScript])      
+                featured=data.rows[0].featured    
+            }
+        }
         if(scriptDetail.rows[0].main){
             episodes=await pool.query('select * from series_episodes where main_script=$1',[scriptId])
         }else{
@@ -1228,14 +1271,28 @@ app.get('/scriptdetails',async(req,res)=>{
         }
         if(episodes.rowCount>0){
             episodeState=true
+            const data=await pool.query('select * from episodes where script_id=$1',[scriptId])
+            episode=data.rows[0].episode
+            season=data.rows[0].season
 
-        }else{
+        }if(scriptDetail.rows[0].entertainment!=='MOVIE'){
+            const data=await pool.query('select * from episodes where script_id=$1',[scriptId])
+            episode=data.rows[0].episode
+            season=data.rows[0].season
+            episodeState=true
+
+
+        }
+            else{
             episodeState=false
+            episode=false
+            season=false
+
         }
         console.log('nodejsssssssssss',scriptDetail.rows[0])
         const result=scriptDetail.rows[0]
-        console.log(result)
-        res.status(200).json({result,episodeState:episodeState})
+        console.log(result,featured)
+        res.status(200).json({result,episodeState:episodeState,episode,season,featured})
     }catch(e){
         res.status(404).json({message:e.message})
 
@@ -1258,9 +1315,7 @@ app.post('/writersscripts',async(req,res)=>{
                 allScripts.push(script)
             }
         })
-        // const result=scripts.rows
 const result=allScripts
-        // console.log(genre,result,'rooooooooooows')
         res.status(200).json(result)
 
     }catch(e){
@@ -1272,8 +1327,7 @@ console.log(e)
 
 app.get('/bannerscript',async(req,res)=>{
     try{
-        const scripts=await pool.query('SELECT  script_details.script_id,script_details.script_title,script_details.description,script_medias.script_pdf_url,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id')
-        // console.log(scripts.rowCount)
+        const scripts=await pool.query('SELECT  script_details.script_id,script_details.script_title,script_details.description,script_medias.script_pdf_url,script_medias.script_poster FROM script_details JOIN script_medias ON script_details.script_id = script_medias.script_id JOIN script ON script_details.script_id = script.script_id where script.main=$1',[true])
         const index=Math.floor(Math.random()*scripts.rowCount)
         const result=scripts.rows[index]
         res.status(200).json({result})
@@ -1333,9 +1387,7 @@ app.post('/savedscripts',verifyJwt,async(req,res)=>{
                 allScripts.push(script)
             }
         })
-        // const result=scripts.rows
 const result=allScripts
-        // console.log(genre,result,'rooooooooooows')
         res.status(200).json(result)
 
     }catch(e){
@@ -1364,11 +1416,6 @@ const {userid,role}=req.body
 console.log(req.body)
 console.log(userid)
 let details
-// if(role==1){
-//     console.log('in i n1111111')
-//     details=await pool.query('SELECT users.* FROM users WHERE scriptwriter_id=$1',[userid])
-
-// }else{
     details=await pool.query('SELECT users.* FROM users WHERE username=$1',[userid])
     const length=details.rows[0].username.length
     const name=details.rows[0].username
@@ -1396,7 +1443,6 @@ console.log(e)
 //message
 app.post('/addMessage',async(req,res)=>{
     try{
-        // console.log(req.body)/
         const {from,to,message}=req.body;
         const data= await messageModel.create({
             message:{text:message},
@@ -1471,17 +1517,7 @@ app.post('/addMessage',async(req,res)=>{
             console.log(req.body)
             let data
             data=await pool.query('SELECT username from users WHERE id=$1',[id])
-        //     if(role==1){
-        //          data=await pool.query('SELECT username from scriptwriter WHERE scriptwriter_id=$1',[id])
-      
-        //     }
-        //     if(role===2){
-        //        data=await pool.query('SELECT username from producers WHERE producer_id=$1',[id])
-      
-        //   }
-        //   if(role===3){
-        //        data=await pool.query('SELECT username from adminPanel WHERER admin_id=$1',[id])
-        //   }
+   
           console.log(data)
           res.json({username:data.rows[0].username})
             }catch(e){
@@ -1557,11 +1593,6 @@ const jwtVerify=(token)=>{
                 console.log('success verification');
                  userId=decoded.id;
                 console.log(userId)
-                // req.role=decoded.role
-                // return decoded.id 
-                // next();
-               
-               //  console.log(req.userId)
             }
         })
     }
@@ -1590,12 +1621,10 @@ const io =require('socket.io')(3001,{
         console.log(socket.userId,socket.id)
         next();
     } else {
-        // socket.leave('room')
         next(new Error('Authentication error'));
     }
 })
   .on('connection',socket=>{
-    // console.log(socket.rooms)
     global.chatSocket=socket;
     socket.on('join-chat',(data=>{
         console.log('joined the chat',data)
@@ -1622,13 +1651,11 @@ const io =require('socket.io')(3001,{
                 console.log(onlineUsers,'snakes here*************&&&&&&&')
                 updatedlist=onlineUsers.concat({userId:socket.userId,socketId:socket.id})
                 console.log(updatedlist)
-                // state.users=[...state.users,action.payload.users]
 
 
             }
             onlineUsers=updatedlist
             console.log(onlineUsers,'safwan loves kimiko')
-            // onlineUsers.push({userId:socket.userId,socketId:socket.id})
             io.to('room').emit('addUserOnline',{
                 onlineUsers
             }
@@ -1644,7 +1671,6 @@ const io =require('socket.io')(3001,{
             })
         }
        
-        // console.log('onlinehandler*************************************',onlineUsers)
         socket.on('checkonline',data=>{
             io.to('room').emit('isonline',{
                 status:true,
@@ -1655,14 +1681,6 @@ const io =require('socket.io')(3001,{
        
     })
 
-    // socket.on('checkOnline',async(x)=>{
-    //     const currentUsers=await pool.query('select * from onlineusers where user_id=$1',[x])
-    //     console.log(currentUsers.rows[0],x,'(((((((((((((((())))))))))))))))))))))))))))))))))))')
-    //     io.to('room').emit('isOnline',{
-    //         status:currentUsers.rows[0].online_status,
-    //         data:currentUsers.rows[0]
-    //     })
-    // })
 
 
     socket.on('offline',async(data)=>{
@@ -1681,24 +1699,11 @@ const io =require('socket.io')(3001,{
 
           socket.on('newUsers',(data)=>{
             console.log(data,'sick of this')
-            // data.onlineUsers.filter(dat=>dat.socketId!==data.socketId).map(dat=>{
-            //     io.to(dat.socket.id).emit('changeIt',{
-            //         users:data.onlineUsers
-            //     })
-            // })
             io.to('room').emit('changeIt',{
                 users:data.onlineUsers
             })
           })
-        // await pool.query('update onlineusers  set online_status=$1 where user_id=$2',[false,data.userId])
-        
-        // // let currentOnlineUser=onlineUsers.filter(user=>user!==data.userId)
-        // //  onlineUsers=currentOnlineUser
-        // //  console.log(onlineUsers)
-
-        // // io.to('room').emit('latestStatus',{
-        // //   users:currentOnlineUser
-        // // })
+     
     })
     socket.on('changeOnline',(data)=>{
         io.to('room').emit('modify',data.users)
@@ -1744,9 +1749,7 @@ console.log(e)
         io.to(data.to).emit('notifies',{
             messageid:data.room
         })
-        // const message=data.msg;
-        // const sender=data.from;
-        // const reciever=data.to
+
         const room=data.room
        
         io.to(room).emit('recieve-msg',{
@@ -1758,11 +1761,5 @@ console.log(e)
             
 
         })
-        // socket.broadcast.emit('recieve-msg',{
-        //     sender:data.from,
-        //     msg:data.msg,
-        //     reciever:data.to
-
-        // })
     })
   })
