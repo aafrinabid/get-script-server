@@ -20,6 +20,7 @@ const stripe= require('stripe')(process.env.stripe_secret_key)
 const sentEmail= require('./utils/sendEmail')
 const morgan=require('morgan');
 const { type } = require('os');
+const server = require("http").createServer(app);
 app.use(cors())
 app.use(morgan(':method :url  STATUS: :status  RESPONSE-TIME: :response-time ms'))
 const verifyJwt=(req,res,next)=>{
@@ -1600,6 +1601,7 @@ const jwtVerify=(token)=>{
 
 }
 let onlineUsers=[]
+let videoCallOnline=[]
 
 
 const io =require('socket.io')(3001,{
@@ -1763,3 +1765,78 @@ console.log(e)
         })
     })
   })
+
+
+  //video call part
+  const jo = require("socket.io")(server, {
+	cors: {
+		origin: "*",
+		methods: [ "GET", "POST" ]
+	}
+});
+
+
+const PORT = process.env.PORT || 5000;
+
+jo.use(async function (socket, next) {
+    if (socket.handshake.auth && socket.handshake.auth.token) {
+        console.log('Inside');
+        const userId =  jwtVerify(socket.handshake.auth.token);
+        console.log(userId, "-----------------------------------------payload")
+        socket['userId'] = userId;
+        
+        
+        console.log(socket.userId,socket.id)
+        next();
+    } else {
+        next(new Error('Authentication error'));
+    }
+})
+
+jo.on("connection", (socket) => {
+    socket.on('join-video-channel',()=>{
+        if(socket.userId){
+            const existingIndex=videoCallOnline.findIndex(user=>user.id===socket.userId)
+            const existingItem=videoCallOnline[existingIndex]
+            let updatedlist
+            if(existingItem){
+                if(existingItem.socketId===socket.id){
+                    return
+                }else{
+                    const updatedUser={...existingUser,socketId:socket.id}
+                    updatedlist=[...videoCallOnline]
+                    updatedlist[existingIndex]=updatedUser
+    
+                }
+               
+
+            }else{
+                updatedlist=videoCallOnline.concat({id:socket.userId,socketId:socket.id})
+                console.log(updatedlist)
+
+            }
+            videoCallOnline=updatedlist
+
+        }
+        else{
+            const updatedList=videoCallOnline.filter(user=>user.socketId!==socket.id)
+            videoCallOnline=updatedList
+        }
+        console.log(videoCallOnline)
+    })
+	socket.emit("me", socket.id);
+
+	socket.on("disconnect", () => {
+		socket.broadcast.emit("callEnded")
+	});
+
+	socket.on("callUser", ({ userToCall, signalData, from, name }) => {
+		io.to(userToCall).emit("callUser", { signal: signalData, from, name });
+	});
+
+	socket.on("answerCall", (data) => {
+		io.to(data.to).emit("callAccepted", data.signal)
+	});
+});
+
+server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
