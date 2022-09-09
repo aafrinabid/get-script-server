@@ -1657,7 +1657,7 @@ const io =require('socket.io')(3001,{
 
             }
             onlineUsers=updatedlist
-            console.log(onlineUsers,'safwan loves kimiko')
+            console.log(onlineUsers,'safwan loves kimiko',videoCallOnline)
             io.to('room').emit('addUserOnline',{
                 onlineUsers
             }
@@ -1812,7 +1812,7 @@ jo.on("connection", (socket) => {
 
             }else{
                 updatedlist=videoCallOnline.concat({id:socket.userId,socketId:socket.id})
-                console.log(updatedlist)
+                console.log(updatedlist,'updated video list')
 
             }
             videoCallOnline=updatedlist
@@ -1822,7 +1822,7 @@ jo.on("connection", (socket) => {
             const updatedList=videoCallOnline.filter(user=>user.socketId!==socket.id)
             videoCallOnline=updatedList
         }
-        console.log(videoCallOnline)
+        console.log(videoCallOnline,'videocall users')
     })
 	socket.emit("me", socket.id);
 
@@ -1830,8 +1830,11 @@ jo.on("connection", (socket) => {
 		socket.broadcast.emit("callEnded")
 	});
 
-	socket.on("callUser", ({ userToCall, signalData, from, name }) => {
-		io.to(userToCall).emit("callUser", { signal: signalData, from, name });
+	socket.on("callUser", ({ userId, signalData, from, name }) => {
+        const user=videoCallOnline.filter(user=>user.id===userId).map(user=>{
+            return user.socketId
+        })
+		io.to(user).emit("callUser", { signal: signalData, from, name });
 	});
 
 	socket.on("answerCall", (data) => {
