@@ -1803,7 +1803,7 @@ jo.on("connection", (socket) => {
                 if(existingItem.socketId===socket.id){
                     return
                 }else{
-                    const updatedUser={...existingUser,socketId:socket.id}
+                    const updatedUser={...existingItem,socketId:socket.id}
                     updatedlist=[...videoCallOnline]
                     updatedlist[existingIndex]=updatedUser
     
@@ -1831,14 +1831,21 @@ jo.on("connection", (socket) => {
 	});
 
 	socket.on("callUser", ({ userId, signalData, from, name }) => {
+        console.log('calling the user',userId)
+        let socketId
         const user=videoCallOnline.filter(user=>user.id===userId).map(user=>{
-            return user.socketId
+            console.log(user)
+            socketId=user.socketId
+            return {socketId:user.socketId}
+            
         })
-		io.to(user).emit("callUser", { signal: signalData, from, name });
+        console.log(user.socketId)
+		jo.to(socketId).emit("callUser", { signal: signalData, from:socket.id, name });
 	});
 
 	socket.on("answerCall", (data) => {
-		io.to(data.to).emit("callAccepted", data.signal)
+        console.log(data)
+		jo.to(data.to).emit("callAccepted", data.signal)
 	});
 });
 
