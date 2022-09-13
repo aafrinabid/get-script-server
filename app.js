@@ -1254,6 +1254,7 @@ app.get('/scriptdetails',async(req,res)=>{
         
         let episodes
         let episodeState
+        let moreThanOne=false
         let episode
         let season
         let featured=scriptDetail.rows[0].featured
@@ -1271,6 +1272,7 @@ app.get('/scriptdetails',async(req,res)=>{
             episodes=await pool.query('select * from series_episodes where child_script=$1',[scriptId])
         }
         if(episodes.rowCount>0){
+            moreThanOne=true
             episodeState=true
             const data=await pool.query('select * from episodes where script_id=$1',[scriptId])
             episode=data.rows[0].episode
@@ -1293,7 +1295,7 @@ app.get('/scriptdetails',async(req,res)=>{
         console.log('nodejsssssssssss',scriptDetail.rows[0])
         const result=scriptDetail.rows[0]
         console.log(result,featured)
-        res.status(200).json({result,episodeState:episodeState,episode,season,featured})
+        res.status(200).json({result,episodeState:episodeState,episode,season,featured,moreThanOne})
     }catch(e){
         res.status(404).json({message:e.message})
 
@@ -1840,13 +1842,26 @@ jo.on("connection", (socket) => {
             
         })
         console.log(user.socketId)
-		jo.to(socketId).emit("callUser", { signal: signalData, from:socket.id, name });
+		jo.to(socketId).emit("callUser", { signal: signalData, from:socket.id, name,userId });
 	});
 
 	socket.on("answerCall", (data) => {
         console.log(data)
-		jo.to(data.to).emit("callAccepted", data.signal)
+		jo.to(data.to).emit("callAccepted", {signal:data.signal,from:socket.id})
 	});
+
+    socket.on('end-call',(data)=>{
+        // let socketId
+        // const user=videoCallOnline.filter(user=>user.id===data).map(user=>{
+        //     console.log(user,'ending call')
+        //     socketId=user.socketId
+        //     return {socketId:user.socketId}
+            
+        // })
+
+        jo.to(data).emit('end-call')
+
+    })
 });
 
 server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
