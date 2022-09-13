@@ -1851,15 +1851,21 @@ jo.on("connection", (socket) => {
 	});
 
     socket.on('end-call',(data)=>{
-        // let socketId
-        // const user=videoCallOnline.filter(user=>user.id===data).map(user=>{
-        //     console.log(user,'ending call')
-        //     socketId=user.socketId
-        //     return {socketId:user.socketId}
-            
-        // })
+      
+        const index=videoCallOnline.findIndex(user=>user.socketId===data)
+        const existingUser=videoCallOnline[index]
+        let socketId
+        if(existingUser){
 
-        jo.to(data).emit('end-call')
+          socketId=data
+        }else{
+        const user=videoCallOnline.filter(user=>user.id===data).map(user=>{
+            console.log(user,'ending call')
+            socketId=user.socketId
+        })
+
+        }
+        return jo.to(socketId).emit('end-call')
 
     })
 });
