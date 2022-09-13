@@ -1832,17 +1832,17 @@ jo.on("connection", (socket) => {
 		socket.broadcast.emit("callEnded")
 	});
 
-	socket.on("callUser", ({ userId, signalData, from, name }) => {
+	socket.on("callUser",async({ userId, signalData, from, name }) => {
         console.log('calling the user',userId)
         let socketId
         const user=videoCallOnline.filter(user=>user.id===userId).map(user=>{
             console.log(user)
             socketId=user.socketId
             return {socketId:user.socketId}
-            
         })
+        const username=await pool.query('SELECT * from users where id=$1',[socket.userId])
         console.log(user.socketId)
-		jo.to(socketId).emit("callUser", { signal: signalData, from:socket.id, name,userId });
+		jo.to(socketId).emit("callUser", { signal: signalData, from:socket.id, name:username.rows[0].username,userId });
 	});
 
 	socket.on("answerCall", (data) => {
