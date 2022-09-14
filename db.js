@@ -1,6 +1,5 @@
 (async function main(){
     const pg=require('pg')
-    // const connectionString='postgres://ukqywbrd:XE9x0W41n6H6eMlXxWjCb6FV3G4Xjp4E@castor.db.elephantsql.com/ukqywbrd'
         const connectionString='postgressql://postgres:password@localhost:5432/getscript'
     var client = new pg.Client(connectionString);
     client.connect(function(err) {
