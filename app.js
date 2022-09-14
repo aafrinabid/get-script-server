@@ -1697,8 +1697,13 @@ const io =require('socket.io')(3001,{
         socket.leave('room')
         console.log('offflineeees')
         const updatedList=onlineUsers.filter(user=>user.userId!==data.userId)
+        const updatedVideoList=videoCallOnline.filter(user=>user.id!==data.userId)
+
         onlineUsers=updatedList
+        videoCallOnline=updatedVideoList
         console.log('logingo ut users is ',onlineUsers)
+        console.log('logingo ut  video users is ',videoCallOnline)
+
 
 
         io.to('room').emit('isonline',{
