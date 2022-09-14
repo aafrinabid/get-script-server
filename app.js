@@ -632,8 +632,11 @@ app.post('/loginProducer',async(req,res)=>{
                 res.status(200).json({result,token:token,status,auth:true,role})
                 }
             }else{
-                throw new Error('Password is Wrong')
+                throw new Error('User does not exist OR Password is wrong')
             }
+        }else{
+            throw new Error('User does not exist OR Password is wrong')
+
         }
     }catch(e){
         res.status(400).json({message:e.message})
@@ -702,10 +705,10 @@ app.post('/loginScriptwriter',async(req,res)=>{
                 res.status(200).json({result,token:token,status,auth:true,role})
                 }
             }else{
-                throw new Error('Password is Wrong')
+                throw new Error('User does not exist or Password is Wrong')
             }
         }else{
-            throw new Error('user does not exist')
+            throw new Error('user does not exist or Password is Wrong')
         }
     }catch(e){
         console.log(e.message)
