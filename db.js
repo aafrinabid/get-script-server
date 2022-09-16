@@ -1,6 +1,6 @@
 (async function main(){
     const pg=require('pg')
-    const connectionString='postgressql://postgres:password@localhost:5432/getscript'
+        const connectionString='postgressql://postgres:password@localhost:5432/getscript'
     var client = new pg.Client(connectionString);
     client.connect(function(err) {
       if(err) {

@@ -632,8 +632,11 @@ app.post('/loginProducer',async(req,res)=>{
                 res.status(200).json({result,token:token,status,auth:true,role})
                 }
             }else{
-                throw new Error('Password is Wrong')
+                throw new Error('User does not exist OR Password is wrong')
             }
+        }else{
+            throw new Error('User does not exist OR Password is wrong')
+
         }
     }catch(e){
         res.status(400).json({message:e.message})
@@ -702,10 +705,10 @@ app.post('/loginScriptwriter',async(req,res)=>{
                 res.status(200).json({result,token:token,status,auth:true,role})
                 }
             }else{
-                throw new Error('Password is Wrong')
+                throw new Error('User does not exist or Password is Wrong')
             }
         }else{
-            throw new Error('user does not exist')
+            throw new Error('user does not exist or Password is Wrong')
         }
     }catch(e){
         console.log(e.message)
@@ -1534,19 +1537,21 @@ app.post('/addMessage',async(req,res)=>{
 
       app.post('/messagelist',async(req,res)=>{
         try{
+            console.log(req.body)
             const {senderId,recieverId,date}=req.body;
             if(senderId===recieverId){
-                console.log('cream')
+                console.log('same person')
                 return res.json({message:'same peroson'})
             }
             const message= await pool.query('SELECT * FROM msg WHERE sender_id=$1 AND reciever_id=$2',[senderId,recieverId])
             if(message.rowCount>0){
+                console.log('exist')
               return  res.json({message:'exist'})
             }
             console.log(senderId,recieverId,date)
             const id = await pool.query('INSERT INTO msg (sender_id,reciever_id,updated_time) VALUES($1,$2,$3) RETURNING message_id',[senderId,recieverId,date])
             await pool.query('INSERT INTO msg(message_id,sender_id,reciever_id,updated_time) VALUES($1,$2,$3,$4)',[id.rows[0].message_id,recieverId,senderId,date])
-
+            console.log(id)
           res.json({message:'success',messageId:id.rows[0].message_id})
   
         }catch(e){
@@ -1692,8 +1697,13 @@ const io =require('socket.io')(3001,{
         socket.leave('room')
         console.log('offflineeees')
         const updatedList=onlineUsers.filter(user=>user.userId!==data.userId)
+        const updatedVideoList=videoCallOnline.filter(user=>user.id!==data.userId)
+
         onlineUsers=updatedList
+        videoCallOnline=updatedVideoList
         console.log('logingo ut users is ',onlineUsers)
+        console.log('logingo ut  video users is ',videoCallOnline)
+
 
 
         io.to('room').emit('isonline',{
