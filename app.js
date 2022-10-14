@@ -1449,10 +1449,10 @@ console.log(e)
 //message
 app.post('/addMessage',async(req,res)=>{
     try{
-        const {from,to,message}=req.body;
+        const {from,messageId,message}=req.body;
         const data= await messageModel.create({
             message:{text:message},
-            users:[from,to],
+            messageId:messageId,
             sender:from,
         });
         console.log(data)
@@ -1466,14 +1466,13 @@ app.post('/addMessage',async(req,res)=>{
     
     app.post('/getMessages',async (req, res, next) => {
         try {
-            console.log('happening')
-          const { from, to } = req.body;
+            console.log('happening',req.body)
+          const { from, messageId } = req.body;
       
           const messages = await messageModel.find({
-            users: {
-              $all: [from, to],
-            },
+         messageId:messageId
           }).sort({ updatedAt: 1 });
+          console.log(messages,'my messages')
           if(messages.length>0){
             const projectedMessages = messages.map((msg) => {
                 return {
@@ -1481,7 +1480,8 @@ app.post('/addMessage',async(req,res)=>{
                   message: msg.message.text,
                 };
               });
-              res.json({projectedMessages,from,to});  
+              console.log(projectedMessages,'still my messages')
+              res.json({projectedMessages,from});  
           }
           else{
             res.json({messageStatus:false})
@@ -1495,10 +1495,11 @@ app.post('/addMessage',async(req,res)=>{
 
 
       app.post('/messagedetail',verifyJwt,async(req,res)=>{
-        try{console.log('*****************************')
-            const userid=req.userId
+        try{
+        console.log('*****************************')
+        const userid=req.userId
             console.log(userid)
-     const data=await pool.query('SELECT * FROM msg WHERE sender_id=$1  ORDER BY updated_time DESC',[userid])
+     const data=await pool.query('SELECT msgs.*, chat_users.users FROM msgs JOIN chat_users on msgs.message_id=chat_users.message_id WHERE $1=ANY(chat_users.users)  ORDER BY updated_time DESC',[userid])
      console.log(data.rows,'checking messages')
      if(data.rowCount>0){
 
@@ -1518,11 +1519,12 @@ app.post('/addMessage',async(req,res)=>{
 
       app.post('/userDetails',async(req,res)=>{
         try{
-            const {id}=req.body
+            const {id,users}=req.body
             const {role}=req.body
-            console.log(req.body)
+            const filteredData= users.filter(user=>user!==id)
+         console.log(filteredData,'filteredData')
             let data
-            data=await pool.query('SELECT username from users WHERE id=$1',[id])
+            data=await pool.query('SELECT username from users WHERE id=$1',[filteredData[0]])
    
           console.log(data)
           res.json({username:data.rows[0].username})
@@ -1538,19 +1540,21 @@ app.post('/addMessage',async(req,res)=>{
       app.post('/messagelist',async(req,res)=>{
         try{
             console.log(req.body)
+
             const {senderId,recieverId,date}=req.body;
+            const array=[senderId,recieverId]
             if(senderId===recieverId){
                 console.log('same person')
                 return res.json({message:'same peroson'})
             }
-            const message= await pool.query('SELECT * FROM msg WHERE sender_id=$1 AND reciever_id=$2',[senderId,recieverId])
+            const message= await pool.query('SELECT * FROM chat_users WHERE users @> $1 ',[array])
             if(message.rowCount>0){
                 console.log('exist')
-              return  res.json({message:'exist'})
+              return  res.json({message:'exist',messageId:message.rows[0].message_id})
             }
             console.log(senderId,recieverId,date)
-            const id = await pool.query('INSERT INTO msg (sender_id,reciever_id,updated_time) VALUES($1,$2,$3) RETURNING message_id',[senderId,recieverId,date])
-            await pool.query('INSERT INTO msg(message_id,sender_id,reciever_id,updated_time) VALUES($1,$2,$3,$4)',[id.rows[0].message_id,recieverId,senderId,date])
+            const id = await pool.query('INSERT INTO msgs (updated_time,type) VALUES($1,$2) RETURNING message_id',[date,'single'])
+            await pool.query('INSERT INTO chat_users(message_id,users) VALUES($1,$2)',[id.rows[0].message_id,array])
             console.log(id)
           res.json({message:'success',messageId:id.rows[0].message_id})
   
@@ -1563,7 +1567,7 @@ app.post('/addMessage',async(req,res)=>{
     app.post('/updateMessageList',async(req,res)=>{
         try{
  const {date,messageId,message}=req.body
- await pool.query('update msg set updated_time=$1,last_msg=$2 where message_id=$3',[date,message,messageId])
+ await pool.query('update msgs set updated_time=$1,last_msg=$2 where message_id=$3',[date,message,messageId])
  res.json({message:'success'})
         }catch(e){
 
@@ -1575,7 +1579,7 @@ app.post('/addMessage',async(req,res)=>{
         try{
             const {userid,recieverid}=req.body
             console.log(req.body)
-            const data= await pool.query('select message_id,reciever_id,sender_id from msg where sender_id=$1 and reciever_id=$2',[userid,recieverid])
+            const data= await pool.query('SELECT msgs.*, chat_users.users FROM msgs JOIN chat_users on msgs.message_id=chat_users.message_id WHERE $1=ANY(chat_users.users)  ORDER BY updated_time DESC',[userid,recieverid])
             console.log(data)
             res.json({messageId:data.rows[0].message_id,recieverId:data.rows[0].reciever_id,senderId:data.rows[0].sender_id})
         }catch(e){
@@ -1739,7 +1743,7 @@ const io =require('socket.io')(3001,{
     socket.on('fetch-list',async(data)=>{
         try{
             console.log(data,'ehrere is it man')
-            const list=await pool.query('SELECT * FROM msg WHERE sender_id=$1  ORDER BY updated_time DESC',[data.userId])
+            const list=await pool.query('SELECT msgs.*, chat_users.users FROM msgs JOIN chat_users on msgs.message_id=chat_users.message_id WHERE $1=ANY(chat_users.users)  ORDER BY updated_time DESC',[data.userId])
             console.log(list.rows,'seeen')
             socket.emit('list',{
                 users:list.rows
@@ -1751,7 +1755,7 @@ const io =require('socket.io')(3001,{
     })
     socket.on('fetch-msg',async(data)=>{
     try{
-const msg=await pool.query('select * from msg where sender_id=$1 ORDER BY updated_time DESC',[data.userId])
+const msg=await pool.query('SELECT msgs.*, chat_users.users FROM msgs JOIN chat_users on msgs.message_id=chat_users.message_id WHERE $1=ANY(chat_users.users)  ORDER BY updated_time DESC',[data.userId])
  socket.emit('last-msg',msg.rows)
     }catch(e){
 console.log(e)    
@@ -1769,7 +1773,7 @@ console.log(e)
         io.to(room).emit('recieve-msg',{
             sender:data.from,
             msg:data.msg,
-            reciever:data.to,
+            // reciever:data.to,
             room:data.room
 
             

@@ -341,7 +341,7 @@ insert into users(username,email,password,firstname,lastname,status,email_verifi
 
 
 
-CREATE TABLE msg(
+CREATE TABLE msgs(
   message_id uuid DEFAULT uuid_generate_v4 (),
   updated_time VARCHAR NOT NULL,
   last_msg VARCHAR,
@@ -351,9 +351,12 @@ CREATE TABLE msg(
 
 CREATE TABLE chat_users(
     message_id uuid, 
-    user uuid,
+    user uuid[],
     FOREIGN KEY (message_id)
-    REFERENCES msg(message_id),
-    FOREIGN KEY(mess)
-
+    REFERENCES msgs(message_id),
 )
+
+
+-- select  msgs.*, chat_users.* from msgs join chat_users on msgs.message_id=chat_users.message_id  where '3' =ANY(chat_users.users) and '2' =ANY(chat_users.users)
+
+-- select  msgs.*, unnest(chat_users.users) from msgs join chat_users on msgs.message_id=chat_users.message_id  where chat_users.users @> '{"2","1"}';
