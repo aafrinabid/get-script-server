@@ -338,3 +338,22 @@ insert into users(username,email,password,firstname,lastname,status,email_verifi
 
 
 'select episodes.* from series_episodes join episodes on series_episodes.child_script=episodes.script_id where episode.season=$1 and episode.episode= $2',[] 
+
+
+
+CREATE TABLE msg(
+  message_id uuid DEFAULT uuid_generate_v4 (),
+  updated_time VARCHAR NOT NULL,
+  last_msg VARCHAR,
+  PRIMARY KEY (message_id)
+
+)
+
+CREATE TABLE chat_users(
+    message_id uuid, 
+    user uuid,
+    FOREIGN KEY (message_id)
+    REFERENCES msg(message_id),
+    FOREIGN KEY(mess)
+
+)
