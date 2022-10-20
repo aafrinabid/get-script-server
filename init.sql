@@ -356,6 +356,18 @@ CREATE TABLE chat_users(
     REFERENCES msgs(message_id),
 )
 
+CREATE TABLE user_followers(
+    user_id uuid,
+    follower_id uuid
+    FOREIGN KEY (user_id)
+    REFERENCES users(id),
+    FOREIGN KEY (follower_id)
+    REFERENCES users(id)
+
+)
+
+
+
 
 -- select  msgs.*, chat_users.* from msgs join chat_users on msgs.message_id=chat_users.message_id  where '3' =ANY(chat_users.users) and '2' =ANY(chat_users.users)
 

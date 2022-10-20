@@ -1437,11 +1437,13 @@ let details
 
     }
     const scriptCount = await pool.query('select count(scriptwriter_id) from script where scriptwriter_id=$1',[details.rows[0].id])
-// }
+    const followersCount= await pool.query('select count(user_id) from user_followers where user_id=$1',[details.rows[0].id])
+    // }
+
 console.log(scriptCount.rows[0].count,'hiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii')
 const count=scriptCount.rows[0].count
 
-res.json({result:details.rows[0],username:finalName,scriptCount:scriptCount.rows[0].count})
+res.json({result:details.rows[0],username:finalName,scriptCount:scriptCount.rows[0].count,followersCount:followersCount.rows[0].count})
 }catch(e){
 console.log(e)
 }
@@ -1466,7 +1468,6 @@ app.post('/addMessage',async(req,res)=>{
     
     app.post('/getMessages',async (req, res, next) => {
         try {
-            console.log('happening',req.body)
           const { from, messageId } = req.body;
       
           const messages = await messageModel.find({
@@ -1480,7 +1481,6 @@ app.post('/addMessage',async(req,res)=>{
                   message: msg.message.text,
                 };
               });
-              console.log(projectedMessages,'still my messages')
               res.json({projectedMessages,from});  
           }
           else{
@@ -1520,14 +1520,14 @@ app.post('/addMessage',async(req,res)=>{
       app.post('/userDetails',async(req,res)=>{
         try{
             const {id,users}=req.body
-            const {role}=req.body
+            console.log(req.body)
             const filteredData= users.filter(user=>user!==id)
-         console.log(filteredData,'filteredData')
+         console.log(filteredData,'filteredData for chat')
             let data
-            data=await pool.query('SELECT username from users WHERE id=$1',[filteredData[0]])
+            data=await pool.query('SELECT username,id from users WHERE id=$1',[filteredData[0]])
    
           console.log(data)
-          res.json({username:data.rows[0].username})
+          res.json({username:data.rows[0].username,id:data.rows[0].id})
             }catch(e){
                 console.error(e)
             }      
